@@ -2,7 +2,7 @@
 
 from datetime import UTC, date, datetime, timedelta
 
-from oilify_studio_backend.db.schema import Price, Tickers
+from oilify_studio_backend.db.schema import HistoricalVolatility, Price, TechnicalIndicator, Tickers
 from oilify_studio_backend.db.seed import seed_initial_tickers
 from oilify_studio_backend.services.price import PricePoint
 
@@ -45,6 +45,8 @@ def test_seed_initial_tickers_seeds_tickers_and_historical_prices(db_session, mo
 
     assert db_session.query(Tickers).count() == 5
     assert db_session.query(Price).count() == 150
+    assert db_session.query(TechnicalIndicator).count() > 0
+    assert db_session.query(HistoricalVolatility).count() > 0
     assert [row.symbol for row in db_session.query(Tickers).order_by(Tickers.id).all()] == [
         "CL=F",
         "BZ=F",
@@ -71,3 +73,5 @@ def test_seed_initial_tickers_seeds_tickers_and_historical_prices(db_session, mo
 
     assert db_session.query(Tickers).count() == 5
     assert db_session.query(Price).count() == 150
+    assert db_session.query(TechnicalIndicator).count() > 0
+    assert db_session.query(HistoricalVolatility).count() > 0

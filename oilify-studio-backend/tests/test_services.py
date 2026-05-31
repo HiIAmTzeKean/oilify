@@ -3,7 +3,9 @@
 from datetime import UTC, date, datetime, timedelta
 
 from oilify_studio_backend.db.schema import Price, Tickers
+from oilify_studio_backend.services.analytics import rebuild_market_analytics
 from oilify_studio_backend.services.price import (
+    LatestPricePoint,
     PricePoint,
     fetch_current_prices,
     fetch_historical_prices,
@@ -157,5 +159,47 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
 
     latest_rows = get_latest_prices(db_session)
 
-    assert [row.ticker.symbol for row in latest_rows] == ["WTI", "BRENT"]
-    assert [row.price_date for row in latest_rows] == [today, today]
+    assert isinstance(latest_rows[0], LatestPricePoint)
+    assert [row.current.ticker.symbol for row in latest_rows] == ["WTI", "BRENT"]
+    assert [row.current.price_date for row in latest_rows] == [today, today]
+    assert [row.previous.price_date for row in latest_rows] == [yesterday, yesterday]
+
+
+def test_rebuild_market_analytics_persists_indicator_rows(db_session) -> None:
+    _seed_tickers(db_session)
+    ticker_ids = {
+        row.ticker: row.id
+        for row in db_session.query(Tickers).order_by(Tickers.id).all()
+    }
+    today = date.today()
+    rows = []
+    for day_offset in range(30):
+        price_date = today - timedelta(days=29 - day_offset)
+        rows.append(
+            Price(
+                ticker_id=ticker_ids["CL=F"],
+                price_date=price_date,
+                price_usd=100.0 + day_offset,
+                currency="USD",
+                source="yahoo_finance",
+                fetched_at=datetime.now(UTC),
+            )
+        )
+        rows.append(
+            Price(
+                ticker_id=ticker_ids["BZ=F"],
+                price_date=price_date,
+                price_usd=110.0 + day_offset,
+                currency="USD",
+                source="yahoo_finance",
+                fetched_at=datetime.now(UTC),
+            )
+        )
+
+    db_session.add_all(rows)
+    db_session.commit()
+
+    analytics = rebuild_market_analytics(db_session)
+
+    assert len(analytics.indicator_rows) > 0
+    assert len(analytics.volatility_rows) > 0

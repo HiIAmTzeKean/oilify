@@ -29,7 +29,6 @@ services:
       - ./oilify-studio-backend/src:/src/src
     environment:
       PYTHONUNBUFFERED: 1
-      APP_NAME: Oilify API
       API_HOST: 0.0.0.0
       API_PORT: 9000
       DATABASE_URL: postgresql+psycopg://postgres:password@postgres:5432/oilify_db

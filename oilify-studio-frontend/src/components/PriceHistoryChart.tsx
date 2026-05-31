@@ -27,10 +27,31 @@ const buildPath = (
   return data.reduce((path, point, index) => `${path}${index === 0 ? 'M' : 'L'} ${point.x} ${point.y} `, '').trim()
 }
 
+const isPriceOverlayIndicator = (indicatorName: string): boolean => {
+  return indicatorName.startsWith('sma_') || indicatorName.startsWith('ema_')
+}
+
+const getIndicatorStroke = (indicatorName: string): string => {
+  if (indicatorName.startsWith('sma_')) {
+    return 'rgba(251, 191, 36, 0.9)'
+  }
+
+  if (indicatorName.startsWith('ema_')) {
+    return 'rgba(34, 197, 94, 0.9)'
+  }
+
+  return 'rgba(148, 163, 184, 0.85)'
+}
+
 export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
   const getDisplayName = (item: PriceHistorySeries): string => item.short_name ?? item.symbol
   const allPoints = series.flatMap((item) => item.points)
-  const allDates = Array.from(new Set(allPoints.map((point) => point.price_date))).sort()
+  const indicatorPoints = series.flatMap((item) =>
+    item.technical_indicators.flatMap((indicatorSeries) => indicatorSeries.points),
+  )
+  const allDates = Array.from(
+    new Set([...allPoints, ...indicatorPoints].map((point) => point.price_date)),
+  ).sort()
 
   if (allDates.length === 0 || allPoints.length === 0) {
     return (
@@ -41,8 +62,14 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
   }
 
   const values = allPoints.map((point) => point.price_usd)
+  const overlayValues = series.flatMap((item) =>
+    item.technical_indicators
+      .filter((indicatorSeries) => isPriceOverlayIndicator(indicatorSeries.indicator_name))
+      .flatMap((indicatorSeries) => indicatorSeries.points.map((point) => point.indicator_value)),
+  )
+  const plotValues = overlayValues.length > 0 ? [...values, ...overlayValues] : values
   const minValue = Math.min(...values)
-  const maxValue = Math.max(...values)
+  const maxValue = Math.max(...plotValues)
   const range = maxValue - minValue || 1
   const minChartValue = minValue - range * 0.08
   const maxChartValue = maxValue + range * 0.08
@@ -78,16 +105,37 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
       <div className="flex flex-wrap items-center justify-between gap-4 px-1 pb-4">
         <div>
           <p className="text-sm uppercase tracking-[0.25em] text-slate-400">30-day history</p>
-          <p className="mt-2 text-lg font-semibold text-white">Tracked benchmark closing prices</p>
+          <p className="mt-2 text-lg font-semibold text-white">Tracked benchmark closing prices and overlays</p>
         </div>
         <div className="flex flex-wrap gap-3 text-xs text-slate-300">
           {series.map((item) => (
-            <div key={item.ticker} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getTickerColor(item.ticker) }} />
-              <span>{getDisplayName(item)}</span>
-            </div>
+            <React.Fragment key={item.ticker}>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getTickerColor(item.ticker) }} />
+                <span>{getDisplayName(item)}</span>
+              </div>
+              {item.technical_indicators
+                .filter((indicatorSeries) => isPriceOverlayIndicator(indicatorSeries.indicator_name))
+                .map((indicatorSeries) => (
+                  <div
+                    key={`${item.ticker}-${indicatorSeries.indicator_name}`}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/55 px-3 py-1.5"
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: getIndicatorStroke(indicatorSeries.indicator_name) }}
+                    />
+                    <span>{getDisplayName(item)} {indicatorSeries.indicator_label}</span>
+                  </div>
+                ))}
+            </React.Fragment>
           ))}
         </div>
+      </div>
+
+      <div className="px-1 pb-4 text-xs leading-6 text-slate-400">
+        The chart overlays moving averages from persisted database rows. RSI and volatility are stored in the backend
+        and shown in separate analysis modules below.
       </div>
 
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-auto w-full overflow-visible">
@@ -134,6 +182,43 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
               {mappedPoints.map((point, index) => (
                 <circle key={`${item.ticker}-${orderedPoints[index].price_date}`} cx={point.x} cy={point.y} r="4" fill={stroke} stroke="#0f172a" strokeWidth="2" />
               ))}
+
+              {item.technical_indicators
+                .filter((indicatorSeries) => isPriceOverlayIndicator(indicatorSeries.indicator_name))
+                .map((indicatorSeries) => {
+                  const mappedIndicatorPoints = indicatorSeries.points
+                    .slice()
+                    .sort((left, right) => left.price_date.localeCompare(right.price_date))
+                    .map((point) => ({
+                      x: xForDate(point.price_date),
+                      y: yForValue(point.indicator_value),
+                    }))
+
+                  return (
+                    <React.Fragment key={`${item.ticker}-${indicatorSeries.indicator_name}`}>
+                      <path
+                        d={buildPath(mappedIndicatorPoints)}
+                        fill="none"
+                        stroke={getIndicatorStroke(indicatorSeries.indicator_name)}
+                        strokeDasharray="8 8"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      {mappedIndicatorPoints.map((point, index) => (
+                        <circle
+                          key={`${item.ticker}-${indicatorSeries.indicator_name}-${indicatorSeries.points[index].price_date}`}
+                          cx={point.x}
+                          cy={point.y}
+                          r="3"
+                          fill={getIndicatorStroke(indicatorSeries.indicator_name)}
+                          stroke="#0f172a"
+                          strokeWidth="1.5"
+                        />
+                      ))}
+                    </React.Fragment>
+                  )
+                })}
             </React.Fragment>
           )
         })}

@@ -1,6 +1,7 @@
 import React from 'react'
 
 import PriceHistoryChart from '../components/PriceHistoryChart'
+import VolatilityChart from '../components/VolatilityChart'
 import {
   getLatestPrices,
   getPriceHistory,
@@ -76,6 +77,28 @@ export default function Prices() {
     [history, selectedTickers],
   )
 
+  const formatChange = (price: Price): { label: string | null; tone: string } => {
+    if (price.price_change_usd === undefined || price.price_change_usd === null || price.previous_price_usd === null) {
+      return { label: null, tone: 'bg-slate-400/15 text-slate-300' }
+    }
+
+    if (price.price_change_usd > 0) {
+      return {
+        label: `▲ ${price.price_change_usd.toFixed(2)} (${price.price_change_pct?.toFixed(2) ?? '0.00'}%)`,
+        tone: 'bg-emerald-400/15 text-emerald-300',
+      }
+    }
+
+    if (price.price_change_usd < 0) {
+      return {
+        label: `▼ ${Math.abs(price.price_change_usd).toFixed(2)} (${Math.abs(price.price_change_pct ?? 0).toFixed(2)}%)`,
+        tone: 'bg-rose-400/15 text-rose-300',
+      }
+    }
+
+    return { label: '• flat vs yesterday', tone: 'bg-slate-400/15 text-slate-300' }
+  }
+
   function toggleTicker(ticker: string) {
     setSelectedTickers((currentSelection) => {
       if (currentSelection.includes(ticker)) {
@@ -107,10 +130,10 @@ export default function Prices() {
       <div className="flex flex-col gap-4 border-b border-white/10 pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-3">
           <p className="text-sm uppercase tracking-[0.3em] text-amber-200/80">Price dashboard</p>
-          <h1 className="text-4xl font-semibold sm:text-5xl">Latest prices and 30-day history</h1>
+          <h1 className="text-4xl font-semibold sm:text-5xl">Current prices, overlays, and volatility</h1>
           <p className="max-w-3xl text-base leading-8 text-slate-300">
-            The page shows the current tracked prices, plus a line chart of the last 30 days fetched through the
-            backend API.
+            The page focuses on current futures prices while the backend serves persisted technical indicators and
+            historical volatility for the chart and risk view.
           </p>
         </div>
 
@@ -134,7 +157,7 @@ export default function Prices() {
           <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-4">
             <div>
               <p className="text-sm uppercase tracking-[0.25em] text-slate-400">Latest prices</p>
-              <p className="mt-2 text-lg font-semibold text-white">Tracked market instruments</p>
+              <p className="mt-2 text-lg font-semibold text-white">Tracked futures with day-over-day direction</p>
             </div>
             <p className="text-xs text-slate-400">Live from the backend</p>
           </div>
@@ -145,21 +168,34 @@ export default function Prices() {
             <p className="mt-5 text-sm leading-6 text-slate-300">No prices are available yet. Use Sync now to fetch them.</p>
           ) : (
             <div className="mt-5 grid gap-3">
-              {prices.map((price) => (
-                <article key={price.ticker} className="rounded-2xl border border-white/10 bg-slate-950/55 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm text-slate-400">{getDisplayName(price)}</p>
-                      <p className="mt-1 text-xs text-slate-500">{price.ticker}</p>
+              {prices.map((price) => {
+                const delta = formatChange(price)
+
+                return (
+                  <article key={price.ticker} className="rounded-2xl border border-white/10 bg-slate-950/55 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm text-slate-400">{getDisplayName(price)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{price.ticker}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-semibold text-amber-200">${price.price_usd.toFixed(2)}</p>
+                        {delta.label ? (
+                          <span className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${delta.tone}`}>
+                            {delta.label}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
-                    <p className="text-2xl font-semibold text-amber-200">${price.price_usd.toFixed(2)}</p>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-                    <span>Date: {price.price_date}</span>
-                    <span>Fetched: {new Date(price.fetched_at).toLocaleString()}</span>
-                  </div>
-                </article>
-              ))}
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+                      <span>Price date: {price.price_date}</span>
+                      {price.previous_price_usd !== null && price.previous_price_usd !== undefined && (
+                        <span>Yesterday: ${price.previous_price_usd.toFixed(2)}</span>
+                      )}
+                    </div>
+                  </article>
+                )
+              })}
             </div>
           )}
         </section>
@@ -170,7 +206,7 @@ export default function Prices() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm uppercase tracking-[0.25em] text-slate-400">Plot filters</p>
-                  <p className="mt-2 text-sm text-slate-300">Choose which tickers appear in the line chart.</p>
+                  <p className="mt-2 text-sm text-slate-300">Choose which tickers appear in the line charts.</p>
                 </div>
                 <button
                   type="button"
@@ -212,32 +248,14 @@ export default function Prices() {
             </div>
           ) : visibleHistory.length === 0 ? (
             <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/55 p-6 text-sm text-slate-300">
-              Select at least one ticker to plot its line chart.
+              Select at least one ticker to plot its line charts.
             </div>
           ) : (
-            <PriceHistoryChart series={visibleHistory} />
+            <div className="space-y-4">
+              <PriceHistoryChart series={visibleHistory} />
+              <VolatilityChart series={visibleHistory} />
+            </div>
           )}
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <article className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <h2 className="text-lg font-semibold text-white">WTI</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-300">
-                West Texas Intermediate is shown as one tracked benchmark in the dashboard.
-              </p>
-            </article>
-            <article className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <h2 className="text-lg font-semibold text-white">Brent</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-300">
-                Brent crude provides the comparison series in the chart.
-              </p>
-            </article>
-            <article className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <h2 className="text-lg font-semibold text-white">30 days</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-300">
-                The chart request asks the backend for the latest 30 trading days by default.
-              </p>
-            </article>
-          </div>
         </section>
       </div>
     </section>

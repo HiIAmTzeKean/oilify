@@ -6,6 +6,7 @@ import yfinance as yf
 from sqlalchemy.orm import Session
 
 from oilify_studio_backend.db.schema import Price, Tickers
+from oilify_studio_backend.services.analytics import rebuild_market_analytics
 
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,12 @@ class PricePoint:
     price_usd: float
     price_date: date
     fetched_at: datetime
+
+
+@dataclass(frozen=True)
+class LatestPricePoint:
+    current: Price
+    previous: Price | None
 
 
 def _extract_last_price(ticker_symbol: str) -> float:
@@ -178,21 +185,25 @@ def ingest_daily_prices(db: Session) -> list[Price]:
     logger.info("Starting price ingestion")
     prices = fetch_current_prices(db)
     rows = upsert_daily_prices(db, prices)
+    rebuild_market_analytics(db)
     logger.info("Completed price ingestion rows=%s", len(rows))
     return rows
 
 
-def get_latest_prices(db: Session) -> list[Price]:
+def get_latest_prices(db: Session) -> list[LatestPricePoint]:
     logger.debug("Fetching latest prices")
-    results: list[Price] = []
+    results: list[LatestPricePoint] = []
     for ticker_row in _get_ticker_rows(db):
-        row = (
+        rows = (
             db.query(Price)
             .filter(Price.ticker_id == ticker_row.id)
-            .order_by(Price.price_date.desc())
-            .first()
+            .order_by(Price.price_date.desc(), Price.id.desc())
+            .limit(2)
+            .all()
         )
-        if row:
-            results.append(row)
+        if rows:
+            current_row = rows[0]
+            previous_row = rows[1] if len(rows) > 1 else None
+            results.append(LatestPricePoint(current=current_row, previous=previous_row))
     logger.info("Fetched latest prices for %s symbols", len(results))
     return results

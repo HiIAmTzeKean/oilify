@@ -67,3 +67,53 @@ class Price(Base):
         onupdate=lambda: datetime.now(UTC),
     )
     ticker: Mapped[Tickers] = relationship(back_populates="prices")
+
+
+class TechnicalIndicator(Base):
+    __tablename__ = "technical_indicators"
+    __table_args__ = (
+        UniqueConstraint("ticker_id", "indicator_date", "indicator_name", name="uq_indicator_ticker_date_name"),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Sequence("technical_indicators_id_seq"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    ticker_id: Mapped[int] = mapped_column(ForeignKey("tickers.id"), nullable=False)
+    indicator_date: Mapped[date] = mapped_column(Date, nullable=False)
+    indicator_name: Mapped[str] = mapped_column(String(32), nullable=False)
+    indicator_value: Mapped[float] = mapped_column(Float, nullable=False)
+    window_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
+    ticker: Mapped[Tickers] = relationship()
+
+
+class HistoricalVolatility(Base):
+    __tablename__ = "historical_volatility"
+    __table_args__ = (
+        UniqueConstraint("ticker_id", "volatility_date", "window_size", name="uq_volatility_ticker_date_window"),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        Sequence("historical_volatility_id_seq"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    ticker_id: Mapped[int] = mapped_column(ForeignKey("tickers.id"), nullable=False)
+    volatility_date: Mapped[date] = mapped_column(Date, nullable=False)
+    annualized_volatility: Mapped[float] = mapped_column(Float, nullable=False)
+    window_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    annualization_factor: Mapped[int] = mapped_column(Integer, nullable=False, default=252)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
+    ticker: Mapped[Tickers] = relationship()
