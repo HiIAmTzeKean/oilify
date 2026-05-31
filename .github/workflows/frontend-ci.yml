@@ -4,15 +4,15 @@ on:
   push:
     branches: [master]
     paths:
-      - "recnexteval-studio-frontend/**"
+      - "oilify-studio-frontend/**"
   pull_request:
     branches: [master]
     paths:
-      - "recnexteval-studio-frontend/**"
+      - "oilify-studio-frontend/**"
 
 defaults:
   run:
-    working-directory: recnexteval-studio-frontend
+    working-directory: oilify-studio-frontend
 
 jobs:
   type-check:
@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: recnexteval-studio-frontend/package-lock.json
+          cache-dependency-path: oilify-studio-frontend/package-lock.json
 
       - run: npm ci
 
@@ -42,7 +42,7 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: recnexteval-studio-frontend/package-lock.json
+          cache-dependency-path: oilify-studio-frontend/package-lock.json
 
       - run: npm ci
 
@@ -59,7 +59,7 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: recnexteval-studio-frontend/package-lock.json
+          cache-dependency-path: oilify-studio-frontend/package-lock.json
 
       - run: npm ci
 
@@ -70,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-coverage
-          path: recnexteval-studio-frontend/coverage/
+          path: oilify-studio-frontend/coverage/
           retention-days: 7
 
   build:
@@ -83,7 +83,7 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: recnexteval-studio-frontend/package-lock.json
+          cache-dependency-path: oilify-studio-frontend/package-lock.json
 
       - run: npm ci
 

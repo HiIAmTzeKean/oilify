@@ -5,7 +5,8 @@ description = ""
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "oilify-backend",
+    "jupyter>=1.1.1",
+    "oilify-studio-backend",
 ]
 
 [tool.uv]
@@ -20,4 +21,4 @@ members = [
 ]
 
 [tool.uv.sources]
-oilify-backend = { workspace = true }
+oilify-studio-backend = { workspace = true }

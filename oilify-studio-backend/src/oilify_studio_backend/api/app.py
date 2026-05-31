@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from oilify_studio_backend.config import Settings, get_settings, setup_logging
 from oilify_studio_backend.db import create_tables
+from oilify_studio_backend.db.seed import seed_initial_tickers
 from oilify_studio_backend.router import create_oil_price_router
 from oilify_studio_backend.services.scheduler import start_scheduler, stop_scheduler
 
@@ -19,6 +20,7 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         create_tables()
+        seed_initial_tickers()
         start_scheduler()
         yield
         stop_scheduler()

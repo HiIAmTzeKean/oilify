@@ -1,5 +1,5 @@
 [project]
-name = "oilify-backend"
+name = "oilify-studio-backend"
 version = "0.1.0"
 description = ""
 readme = "README.md"
@@ -18,7 +18,7 @@ requires = ["uv_build>=0.9.9,<0.10.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = "oilify_backend"
+module-name = "oilify_studio_backend"
 
 [dependency-groups]
 dev = [
@@ -36,7 +36,7 @@ addopts = "-ra --strict-markers"
 
 [tool.coverage.run]
 branch = true
-source = ["oilify_backend"]
+source = ["oilify_studio_backend"]
 
 [tool.coverage.report]
 show_missing = true

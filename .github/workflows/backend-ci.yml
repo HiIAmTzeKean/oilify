@@ -4,20 +4,20 @@ on:
   push:
     branches: [master]
     paths:
-      - "recnexteval-studio-backend/**"
+      - "oilify-studio-backend/**"
       - "pyproject.toml"
       - "uv.lock"
   pull_request:
     branches: [master]
     paths:
-      - "recnexteval-studio-backend/**"
+      - "oilify-studio-backend/**"
       - "pyproject.toml"
       - "uv.lock"
 
 # ubuntu-24.04-arm matches the lock file's linux/aarch64 required-environment
 defaults:
   run:
-    working-directory: recnexteval-studio-backend
+    working-directory: oilify-studio-backend
 
 jobs:
   lint:
@@ -66,5 +66,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-coverage
-          path: recnexteval-studio-backend/coverage.xml
+          path: oilify-studio-backend/coverage.xml
           retention-days: 7
