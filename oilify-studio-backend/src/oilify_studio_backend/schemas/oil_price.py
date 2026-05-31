@@ -3,7 +3,7 @@ from datetime import date, datetime
 from pydantic import BaseModel
 
 
-class OilPriceResponse(BaseModel):
+class PriceResponse(BaseModel):
     symbol: str
     ticker: str
     price_date: date
@@ -13,6 +13,17 @@ class OilPriceResponse(BaseModel):
     fetched_at: datetime
 
 
-class OilPriceSyncResponse(BaseModel):
+class PriceSyncResponse(BaseModel):
     updated_rows: int
-    prices: list[OilPriceResponse]
+    prices: list[PriceResponse]
+
+
+class PriceHistoryPointResponse(BaseModel):
+    price_date: date
+    price_usd: float
+
+
+class PriceHistorySeriesResponse(BaseModel):
+    symbol: str
+    ticker: str
+    points: list[PriceHistoryPointResponse]

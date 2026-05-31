@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 from oilify_studio_backend.services import scheduler as scheduler_module
-from oilify_studio_backend.services.scheduler import _parse_hours, run_oil_price_job, start_scheduler, stop_scheduler
+from oilify_studio_backend.services.scheduler import _parse_hours, run_price_job, start_scheduler, stop_scheduler
 
 
 class _FakeScheduler:
@@ -73,7 +73,7 @@ def test_start_scheduler_registers_job_and_stop_scheduler_shuts_down(mocker) -> 
     assert fake_scheduler.shutdown_called is True
 
 
-def test_run_oil_price_job_closes_session(mocker) -> None:
+def test_run_price_job_closes_session(mocker) -> None:
     session = MagicMock()
     manager = MagicMock()
     manager.get_session.return_value = session
@@ -82,10 +82,10 @@ def test_run_oil_price_job_closes_session(mocker) -> None:
         return_value=manager,
     )
     mocker.patch(
-        "oilify_studio_backend.services.scheduler.ingest_daily_oil_prices",
+        "oilify_studio_backend.services.scheduler.ingest_daily_prices",
         return_value=[MagicMock(), MagicMock()],
     )
 
-    run_oil_price_job()
+    run_price_job()
 
     session.close.assert_called_once()

@@ -11,14 +11,14 @@ from oilify_studio_backend.db.schema import Price, Tickers
 logger = logging.getLogger(__name__)
 
 
-TICKERS: dict[str, str] = {
+MARKET_TICKERS: dict[str, str] = {
     "WTI": "CL=F",
     "BRENT": "BZ=F",
 }
 
 
 @dataclass(frozen=True)
-class OilPricePoint:
+class PricePoint:
     symbol: str
     ticker: str
     price_usd: float
@@ -45,15 +45,15 @@ def _extract_last_price(ticker_symbol: str) -> float:
     return float(history["Close"].iloc[-1])
 
 
-def fetch_current_oil_prices() -> list[OilPricePoint]:
-    logger.info("Fetching current oil prices for %s symbols", len(TICKERS))
+def fetch_current_prices() -> list[PricePoint]:
+    logger.info("Fetching current prices for %s symbols", len(MARKET_TICKERS))
     now = datetime.now(UTC)
     today = now.date()
-    points: list[OilPricePoint] = []
-    for symbol, ticker in TICKERS.items():
+    points: list[PricePoint] = []
+    for symbol, ticker in MARKET_TICKERS.items():
         price = _extract_last_price(ticker)
         points.append(
-            OilPricePoint(
+            PricePoint(
                 symbol=symbol,
                 ticker=ticker,
                 price_usd=price,
@@ -61,19 +61,19 @@ def fetch_current_oil_prices() -> list[OilPricePoint]:
                 fetched_at=now,
             )
         )
-        logger.debug("Fetched oil price symbol=%s ticker=%s price_usd=%s", symbol, ticker, price)
-    logger.info("Fetched %s current oil prices", len(points))
+        logger.debug("Fetched price symbol=%s ticker=%s price_usd=%s", symbol, ticker, price)
+    logger.info("Fetched %s current prices", len(points))
     return points
 
 
-def fetch_historical_oil_prices(days: int = 30) -> list[OilPricePoint]:
-    logger.info("Fetching historical oil prices for %s symbols days=%s", len(TICKERS), days)
+def fetch_historical_prices(days: int = 30) -> list[PricePoint]:
+    logger.info("Fetching historical prices for %s symbols days=%s", len(MARKET_TICKERS), days)
     fetched_at = datetime.now(UTC)
     history_window = "6mo"
-    points: list[OilPricePoint] = []
+    points: list[PricePoint] = []
 
-    for symbol, ticker in TICKERS.items():
-        logger.debug("Fetching historical oil prices symbol=%s ticker=%s", symbol, ticker)
+    for symbol, ticker in MARKET_TICKERS.items():
+        logger.debug("Fetching historical prices symbol=%s ticker=%s", symbol, ticker)
         history = yf.Ticker(ticker).history(period=history_window, interval="1d", auto_adjust=False)
         if history.empty:
             logger.error("No historical market data available for ticker=%s", ticker)
@@ -83,21 +83,22 @@ def fetch_historical_oil_prices(days: int = 30) -> list[OilPricePoint]:
         if recent_history.empty:
             logger.error("No historical rows available for ticker=%s", ticker)
             raise ValueError(f"No historical rows available for ticker {ticker}")
-        if len(recent_history) < days:
+        recent_rows = list(recent_history.iterrows())
+        if len(recent_rows) < days:
             logger.warning(
                 "Only %s historical rows available for ticker=%s requested_days=%s",
-                len(recent_history),
+                len(recent_rows),
                 ticker,
                 days,
             )
 
-        for price_date, row in recent_history.iterrows():
+        for price_date, row in recent_rows:
             close_price = row["Close"]
             if close_price is None or close_price != close_price:
                 continue
 
             points.append(
-                OilPricePoint(
+                PricePoint(
                     symbol=symbol,
                     ticker=ticker,
                     price_usd=float(close_price),
@@ -106,7 +107,7 @@ def fetch_historical_oil_prices(days: int = 30) -> list[OilPricePoint]:
                 )
             )
 
-    logger.info("Fetched %s historical oil price rows", len(points))
+    logger.info("Fetched %s historical price rows", len(points))
     return points
 
 
@@ -125,12 +126,12 @@ def _get_or_create_ticker(db: Session, symbol: str, ticker: str) -> Tickers:
     return existing_ticker
 
 
-def upsert_daily_oil_prices(db: Session, prices: list[OilPricePoint]) -> list[Price]:
-    logger.info("Upserting %s daily oil price rows", len(prices))
+def upsert_daily_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
+    logger.info("Upserting %s daily price rows", len(prices))
     saved_rows: list[Price] = []
     for point in prices:
         logger.debug(
-            "Upserting oil price symbol=%s ticker=%s price_date=%s price_usd=%s",
+            "Upserting price symbol=%s ticker=%s price_date=%s price_usd=%s",
             point.symbol,
             point.ticker,
             point.price_date,
@@ -160,25 +161,25 @@ def upsert_daily_oil_prices(db: Session, prices: list[OilPricePoint]) -> list[Pr
             saved_rows.append(row)
 
     db.commit()
-    logger.info("Committed %s oil price rows", len(saved_rows))
+    logger.info("Committed %s price rows", len(saved_rows))
     for row in saved_rows:
         db.refresh(row)
-    logger.debug("Refreshed %s persisted oil price rows", len(saved_rows))
+    logger.debug("Refreshed %s persisted price rows", len(saved_rows))
     return saved_rows
 
 
-def ingest_daily_oil_prices(db: Session) -> list[Price]:
-    logger.info("Starting oil price ingestion")
-    prices = fetch_current_oil_prices()
-    rows = upsert_daily_oil_prices(db, prices)
-    logger.info("Completed oil price ingestion rows=%s", len(rows))
+def ingest_daily_prices(db: Session) -> list[Price]:
+    logger.info("Starting price ingestion")
+    prices = fetch_current_prices()
+    rows = upsert_daily_prices(db, prices)
+    logger.info("Completed price ingestion rows=%s", len(rows))
     return rows
 
 
-def get_latest_daily_prices(db: Session) -> list[Price]:
-    logger.debug("Fetching latest daily oil prices")
+def get_latest_prices(db: Session) -> list[Price]:
+    logger.debug("Fetching latest prices")
     results: list[Price] = []
-    for symbol in TICKERS:
+    for symbol in MARKET_TICKERS:
         ticker_row = db.query(Tickers).filter(Tickers.symbol == symbol).one_or_none()
         if ticker_row is None:
             continue
@@ -190,5 +191,5 @@ def get_latest_daily_prices(db: Session) -> list[Price]:
         )
         if row:
             results.append(row)
-    logger.info("Fetched latest oil prices for %s symbols", len(results))
+    logger.info("Fetched latest prices for %s symbols", len(results))
     return results

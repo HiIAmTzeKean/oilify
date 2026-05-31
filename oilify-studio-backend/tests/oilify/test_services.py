@@ -4,15 +4,15 @@ from datetime import UTC, date, datetime, timedelta
 
 from oilify_studio_backend.db.schema import Price, Tickers
 from oilify_studio_backend.services.oil_price import (
-    OilPricePoint,
-    fetch_current_oil_prices,
-    fetch_historical_oil_prices,
-    get_latest_daily_prices,
-    upsert_daily_oil_prices,
+    PricePoint,
+    fetch_current_prices,
+    fetch_historical_prices,
+    get_latest_prices,
+    upsert_daily_prices,
 )
 
 
-def test_fetch_current_oil_prices_uses_supported_tickers(monkeypatch) -> None:
+def test_fetch_current_prices_uses_supported_tickers(monkeypatch) -> None:
     prices = {"CL=F": 101.25, "BZ=F": 104.5}
 
     monkeypatch.setattr(
@@ -20,7 +20,7 @@ def test_fetch_current_oil_prices_uses_supported_tickers(monkeypatch) -> None:
         lambda ticker_symbol: prices[ticker_symbol],
     )
 
-    points = fetch_current_oil_prices()
+    points = fetch_current_prices()
 
     assert [point.symbol for point in points] == ["WTI", "BRENT"]
     assert [point.ticker for point in points] == ["CL=F", "BZ=F"]
@@ -29,7 +29,7 @@ def test_fetch_current_oil_prices_uses_supported_tickers(monkeypatch) -> None:
     assert all(point.fetched_at.tzinfo is not None for point in points)
 
 
-def test_fetch_historical_oil_prices_returns_last_30_rows_per_ticker(monkeypatch) -> None:
+def test_fetch_historical_prices_returns_last_30_rows_per_ticker(monkeypatch) -> None:
     class _FakeHistory:
         def __init__(self, rows: list[tuple[datetime, float]]) -> None:
             self._rows = rows
@@ -61,7 +61,7 @@ def test_fetch_historical_oil_prices_returns_last_30_rows_per_ticker(monkeypatch
 
     monkeypatch.setattr("oilify_studio_backend.services.oil_price.yf.Ticker", _FakeTicker)
 
-    points = fetch_historical_oil_prices()
+    points = fetch_historical_prices()
 
     assert len(points) == 60
     assert [point.symbol for point in points[:30]] == ["WTI"] * 30
@@ -70,19 +70,19 @@ def test_fetch_historical_oil_prices_returns_last_30_rows_per_ticker(monkeypatch
     assert points[-1].price_date == date(2025, 2, 4)
 
 
-def test_upsert_daily_oil_prices_inserts_and_updates(db_session) -> None:
+def test_upsert_daily_prices_inserts_and_updates(db_session) -> None:
     today = date.today()
     first_batch = [
-        OilPricePoint("WTI", "CL=F", 100.0, today, datetime.now(UTC)),
-        OilPricePoint("BRENT", "BZ=F", 102.0, today, datetime.now(UTC)),
+        PricePoint("WTI", "CL=F", 100.0, today, datetime.now(UTC)),
+        PricePoint("BRENT", "BZ=F", 102.0, today, datetime.now(UTC)),
     ]
 
-    inserted_rows = upsert_daily_oil_prices(db_session, first_batch)
+    inserted_rows = upsert_daily_prices(db_session, first_batch)
 
     assert len(inserted_rows) == 2
 
-    second_batch = [OilPricePoint("WTI", "CL=F", 110.0, today, datetime.now(UTC))]
-    updated_rows = upsert_daily_oil_prices(db_session, second_batch)
+    second_batch = [PricePoint("WTI", "CL=F", 110.0, today, datetime.now(UTC))]
+    updated_rows = upsert_daily_prices(db_session, second_batch)
 
     assert updated_rows[0].price_usd == 110.0
     stored_row = (
@@ -95,7 +95,7 @@ def test_upsert_daily_oil_prices_inserts_and_updates(db_session) -> None:
     assert stored_row.source == "yahoo_finance"
 
 
-def test_get_latest_daily_prices_returns_latest_rows(db_session) -> None:
+def test_get_latest_prices_returns_latest_rows(db_session) -> None:
     today = date.today()
     yesterday = today - timedelta(days=1)
 
@@ -142,7 +142,7 @@ def test_get_latest_daily_prices_returns_latest_rows(db_session) -> None:
     )
     db_session.commit()
 
-    latest_rows = get_latest_daily_prices(db_session)
+    latest_rows = get_latest_prices(db_session)
 
-    assert [row.symbol for row in latest_rows] == ["WTI", "BRENT"]
+    assert [row.ticker.symbol for row in latest_rows] == ["WTI", "BRENT"]
     assert [row.price_date for row in latest_rows] == [today, today]

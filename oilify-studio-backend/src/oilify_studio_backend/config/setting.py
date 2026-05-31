@@ -30,7 +30,7 @@ class Settings:
     """Runtime configuration for the Oilify backend."""
 
     def __init__(self) -> None:
-        self.USING_ENV_FILE = os.getenv("USING_ENV_FILE", "false").lower()
+        self.USING_ENV_FILE = os.getenv("USING_ENV_FILE", "true").lower()
         # Application Configuration
         self.APP_NAME = os.getenv("APP_NAME", "Oilify API")
         self.APP_VERSION = os.getenv("APP_VERSION", "0.1.0")

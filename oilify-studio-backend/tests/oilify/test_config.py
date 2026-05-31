@@ -69,4 +69,7 @@ def test_get_settings_is_cached() -> None:
 def test_get_database_config_returns_url() -> None:
     settings = Settings()
 
-    assert settings.get_database_config() == {"url": settings.DATABASE_URL}
+    assert settings.get_database_config() == {
+        "url": settings.DATABASE_URL,
+        "execution_options": {"postgresql_fast_executemanypostgresql_fast_executemany": True},
+    }

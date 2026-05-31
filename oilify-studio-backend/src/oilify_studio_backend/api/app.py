@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from oilify_studio_backend.config import Settings, get_settings, setup_logging
 from oilify_studio_backend.db import create_tables
 from oilify_studio_backend.db.seed import seed_initial_tickers
-from oilify_studio_backend.router import create_oil_price_router
+from oilify_studio_backend.router import create_price_router
 from oilify_studio_backend.services.scheduler import start_scheduler, stop_scheduler
 
 
@@ -97,4 +97,4 @@ def _add_routes(app: FastAPI, settings: Settings) -> None:
         logger.debug("Oilify health endpoint requested")
         return {"status": "ok"}
 
-    app.include_router(create_oil_price_router(), prefix=api_prefix)
+    app.include_router(create_price_router(), prefix=api_prefix)
