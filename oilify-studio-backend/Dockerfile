@@ -17,4 +17,4 @@ ENV PYTHONPATH=/src
 EXPOSE 9000
 
 # Run uvicorn importing the Oilify package directly so Python can resolve it
-CMD uv run uvicorn oilify_studio_backend.main:app --host $HOST --port $PORT --reload
+CMD uv run uvicorn oilify_studio_backend.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-9000} --reload
