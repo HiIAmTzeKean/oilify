@@ -5,15 +5,21 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
 
-from oilify_studio_backend.db import HistoricalVolatility, Price, TechnicalIndicator, Tickers, get_db
-from oilify_studio_backend.schemas.price import (
+from oilify_studio_backend.api_models.price import (
     HistoricalVolatilityPointResponse,
-    PriceIndicatorPointResponse,
-    PriceIndicatorSeriesResponse,
     PriceHistoryPointResponse,
     PriceHistorySeriesResponse,
+    PriceIndicatorPointResponse,
+    PriceIndicatorSeriesResponse,
     PriceResponse,
     PriceSyncResponse,
+)
+from oilify_studio_backend.db import (
+    HistoricalVolatility,
+    Price,
+    TechnicalIndicator,
+    Tickers,
+    get_db,
 )
 from oilify_studio_backend.services.price import (
     fetch_historical_prices,
