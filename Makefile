@@ -10,7 +10,7 @@ COMPOSE_FILE := docker-compose.$(ENV).yml
 
 DC = COMPOSE_PROJECT_NAME=$(PROJECT_NAME) docker compose -f $(COMPOSE_FILE)
 
-.PHONY: help up up-dev up-prod down
+.PHONY: help up up-dev up-prod down db-upgrade db-downgrade
 
 help:
 	@echo "Makefile targets:"
@@ -18,6 +18,8 @@ help:
 	@echo "  make up-dev            -> start services using docker-compose.dev.yml"
 	@echo "  make up-prod           -> start services using docker-compose.prod.yml"
 	@echo "  make down              -> stop and remove services"
+	@echo "  make db-upgrade        -> run backend Alembic migrations to head"
+	@echo "  make db-downgrade      -> downgrade backend Alembic migrations by one revision"
 
 up:
 	$(DC) up
@@ -33,3 +35,9 @@ up-prod:
 
 down:
 	$(DC) down
+
+db-upgrade:
+	cd oilify-studio-backend && uv run alembic upgrade head
+
+db-downgrade:
+	cd oilify-studio-backend && uv run alembic downgrade -1
