@@ -15,10 +15,12 @@ _scheduler: AsyncIOScheduler | None = None
 
 def _parse_hours(raw_hours: str) -> str:
     parts = [hour.strip() for hour in raw_hours.split(",") if hour.strip()]
+    logger.debug("Parsed scheduler hours raw=%s parsed=%s", raw_hours, parts)
     return ",".join(parts) if parts else "0,8,16"
 
 
 def run_oil_price_job() -> None:
+    logger.info("Oil price scheduler job started")
     db = get_database_manager().get_session()
     try:
         rows = ingest_daily_oil_prices(db)
@@ -27,6 +29,7 @@ def run_oil_price_job() -> None:
         logger.exception("Oil price scheduler job failed")
     finally:
         db.close()
+        logger.debug("Oil price scheduler database session closed")
 
 
 def start_scheduler() -> None:
@@ -36,9 +39,11 @@ def start_scheduler() -> None:
         logger.info("Scheduler disabled by configuration")
         return
     if _scheduler is not None and _scheduler.running:
+        logger.debug("Oil price scheduler already running")
         return
 
     hours = _parse_hours(settings.OIL_PRICE_SCHEDULE_HOURS)
+    logger.info("Starting oil price scheduler for UTC hours=%s", hours)
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(
         run_oil_price_job,
@@ -54,7 +59,10 @@ def start_scheduler() -> None:
 def stop_scheduler() -> None:
     global _scheduler
     if _scheduler is None:
+        logger.debug("Oil price scheduler stop requested but no scheduler is active")
         return
     if _scheduler.running:
+        logger.info("Stopping oil price scheduler")
         _scheduler.shutdown(wait=False)
     _scheduler = None
+    logger.debug("Oil price scheduler cleared")

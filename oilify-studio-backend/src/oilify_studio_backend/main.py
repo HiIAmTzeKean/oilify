@@ -3,6 +3,7 @@ import uvicorn
 from .api.app import create_app
 from .config import get_settings
 
+
 app = create_app()
 
 

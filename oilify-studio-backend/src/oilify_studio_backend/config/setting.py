@@ -18,6 +18,7 @@ class Settings:
             "http://localhost,http://localhost:80,http://127.0.0.1,http://127.0.0.1:80",
         )
         self.CORS_ORIGINS = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
+        self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
         self.DATABASE_URL = os.getenv(
             "DATABASE_URL", "postgresql+psycopg://postgres:password@localhost:5432/oilify_db"
         )
