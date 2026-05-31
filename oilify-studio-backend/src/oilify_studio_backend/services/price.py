@@ -11,12 +11,6 @@ from oilify_studio_backend.db.schema import Price, Tickers
 logger = logging.getLogger(__name__)
 
 
-TRACKED_TICKERS: dict[str, str] = {
-    "WTI": "CL=F",
-    "BRENT": "BZ=F",
-}
-
-
 @dataclass(frozen=True)
 class PricePoint:
     symbol: str
@@ -45,12 +39,21 @@ def _extract_last_price(ticker_symbol: str) -> float:
     return float(history["Close"].iloc[-1])
 
 
-def fetch_current_prices() -> list[PricePoint]:
-    logger.info("Fetching current prices for %s symbols", len(TRACKED_TICKERS))
+def _get_ticker_rows(db: Session) -> list[Tickers]:
+    ticker_rows = db.query(Tickers).order_by(Tickers.id).all()
+    logger.debug("Loaded %s tickers from database", len(ticker_rows))
+    return ticker_rows
+
+
+def fetch_current_prices(db: Session) -> list[PricePoint]:
+    ticker_rows = _get_ticker_rows(db)
+    logger.info("Fetching current prices for %s symbols", len(ticker_rows))
     now = datetime.now(UTC)
     today = now.date()
     points: list[PricePoint] = []
-    for symbol, ticker in TRACKED_TICKERS.items():
+    for ticker_row in ticker_rows:
+        symbol = ticker_row.symbol
+        ticker = ticker_row.ticker
         price = _extract_last_price(ticker)
         points.append(
             PricePoint(
@@ -66,13 +69,16 @@ def fetch_current_prices() -> list[PricePoint]:
     return points
 
 
-def fetch_historical_prices(days: int = 30) -> list[PricePoint]:
-    logger.info("Fetching historical prices for %s symbols days=%s", len(TRACKED_TICKERS), days)
+def fetch_historical_prices(db: Session, days: int = 30) -> list[PricePoint]:
+    ticker_rows = _get_ticker_rows(db)
+    logger.info("Fetching historical prices for %s symbols days=%s", len(ticker_rows), days)
     fetched_at = datetime.now(UTC)
     history_window = "6mo"
     points: list[PricePoint] = []
 
-    for symbol, ticker in TRACKED_TICKERS.items():
+    for ticker_row in ticker_rows:
+        symbol = ticker_row.symbol
+        ticker = ticker_row.ticker
         logger.debug("Fetching historical prices symbol=%s ticker=%s", symbol, ticker)
         history = yf.Ticker(ticker).history(period=history_window, interval="1d", auto_adjust=False)
         if history.empty:
@@ -170,7 +176,7 @@ def upsert_daily_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
 
 def ingest_daily_prices(db: Session) -> list[Price]:
     logger.info("Starting price ingestion")
-    prices = fetch_current_prices()
+    prices = fetch_current_prices(db)
     rows = upsert_daily_prices(db, prices)
     logger.info("Completed price ingestion rows=%s", len(rows))
     return rows
@@ -179,10 +185,7 @@ def ingest_daily_prices(db: Session) -> list[Price]:
 def get_latest_prices(db: Session) -> list[Price]:
     logger.debug("Fetching latest prices")
     results: list[Price] = []
-    for symbol in TRACKED_TICKERS:
-        ticker_row = db.query(Tickers).filter(Tickers.symbol == symbol).one_or_none()
-        if ticker_row is None:
-            continue
+    for ticker_row in _get_ticker_rows(db):
         row = (
             db.query(Price)
             .filter(Price.ticker_id == ticker_row.id)

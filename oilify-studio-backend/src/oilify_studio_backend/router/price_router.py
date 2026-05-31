@@ -30,6 +30,8 @@ def _to_response(row: Price, db: Session) -> PriceResponse:
     return PriceResponse(
         symbol=ticker.symbol if ticker is not None else "",
         ticker=ticker.ticker if ticker is not None else "",
+        short_name=ticker.short_name if ticker is not None else None,
+        long_name=ticker.long_name if ticker is not None else None,
         price_date=row.price_date,
         price_usd=row.price_usd,
         currency=row.currency,
@@ -38,8 +40,8 @@ def _to_response(row: Price, db: Session) -> PriceResponse:
     )
 
 
-def _group_history_points(days: int) -> list[PriceHistorySeriesResponse]:
-    points = fetch_historical_prices(days=days)
+def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResponse]:
+    points = fetch_historical_prices(db, days=days)
     grouped_points: dict[tuple[str, str], list[PriceHistoryPointResponse]] = defaultdict(list)
 
     for point in points:
@@ -50,13 +52,16 @@ def _group_history_points(days: int) -> list[PriceHistorySeriesResponse]:
             )
         )
 
+    ticker_rows = db.query(Tickers).order_by(Tickers.id).all()
     series: list[PriceHistorySeriesResponse] = []
-    for symbol, ticker in (("WTI", "CL=F"), ("BRENT", "BZ=F")):
-        point_list = grouped_points.get((symbol, ticker), [])
+    for ticker_row in ticker_rows:
+        point_list = grouped_points.get((ticker_row.symbol, ticker_row.ticker), [])
         series.append(
             PriceHistorySeriesResponse(
-                symbol=symbol,
-                ticker=ticker,
+                symbol=ticker_row.symbol,
+                ticker=ticker_row.ticker,
+                short_name=ticker_row.short_name,
+                long_name=ticker_row.long_name,
                 points=sorted(point_list, key=lambda point: point.price_date),
             )
         )
@@ -121,10 +126,11 @@ def create_price_router() -> APIRouter:
     @router.get("/history", response_model=list[PriceHistorySeriesResponse])
     def get_price_history(
         days: int = Query(30, ge=1, le=365),
+        db: Session = Depends(get_db),
     ) -> list[PriceHistorySeriesResponse]:
         logger.info("Historical price lookup requested days=%s", days)
         try:
-            series = _group_history_points(days)
+            series = _group_history_points(db, days)
             logger.debug(
                 "Historical price lookup returned series=%s",
                 [item.symbol for item in series],

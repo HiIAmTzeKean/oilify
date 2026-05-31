@@ -30,6 +30,8 @@ class Tickers(Base):
     )
     symbol: Mapped[str] = mapped_column(String(16), nullable=False, unique=True)
     ticker: Mapped[str] = mapped_column(String(16), nullable=False)
+    short_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    long_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     prices: Mapped[list[Price]] = relationship(back_populates="ticker")
 
 

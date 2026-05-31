@@ -18,6 +18,10 @@ def configure_oilify_test_environment(tmp_path, monkeypatch) -> Generator[None, 
     db_path = tmp_path / "oilify_test.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path}")
     monkeypatch.setenv("SCHEDULER_ENABLED", "false")
+    monkeypatch.setattr(
+        "oilify_studio_backend.db.seed._resolve_seed_metadata",
+        lambda ticker: (ticker, f"{ticker} short", f"{ticker} long"),
+    )
     get_settings.cache_clear()
     db_connection._db_manager = None
     yield

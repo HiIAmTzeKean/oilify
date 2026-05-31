@@ -12,7 +12,18 @@ from oilify_studio_backend.services.price import (
 )
 
 
-def test_fetch_current_prices_uses_supported_tickers(monkeypatch) -> None:
+def _seed_tickers(db_session) -> None:
+    db_session.add_all(
+        [
+            Tickers(symbol="WTI", ticker="CL=F"),
+            Tickers(symbol="BRENT", ticker="BZ=F"),
+        ]
+    )
+    db_session.commit()
+
+
+def test_fetch_current_prices_uses_supported_tickers(db_session, monkeypatch) -> None:
+    _seed_tickers(db_session)
     prices = {"CL=F": 101.25, "BZ=F": 104.5}
 
     monkeypatch.setattr(
@@ -20,7 +31,7 @@ def test_fetch_current_prices_uses_supported_tickers(monkeypatch) -> None:
         lambda ticker_symbol: prices[ticker_symbol],
     )
 
-    points = fetch_current_prices()
+    points = fetch_current_prices(db_session)
 
     assert [point.symbol for point in points] == ["WTI", "BRENT"]
     assert [point.ticker for point in points] == ["CL=F", "BZ=F"]
@@ -29,7 +40,9 @@ def test_fetch_current_prices_uses_supported_tickers(monkeypatch) -> None:
     assert all(point.fetched_at.tzinfo is not None for point in points)
 
 
-def test_fetch_historical_prices_returns_last_30_rows_per_ticker(monkeypatch) -> None:
+def test_fetch_historical_prices_returns_last_30_rows_per_ticker(db_session, monkeypatch) -> None:
+    _seed_tickers(db_session)
+
     class _FakeHistory:
         def __init__(self, rows: list[tuple[datetime, float]]) -> None:
             self._rows = rows
@@ -61,7 +74,7 @@ def test_fetch_historical_prices_returns_last_30_rows_per_ticker(monkeypatch) ->
 
     monkeypatch.setattr("oilify_studio_backend.services.price.yf.Ticker", _FakeTicker)
 
-    points = fetch_historical_prices()
+    points = fetch_historical_prices(db_session)
 
     assert len(points) == 60
     assert [point.symbol for point in points[:30]] == ["WTI"] * 30
