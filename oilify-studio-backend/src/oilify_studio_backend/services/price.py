@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 class PricePoint:
     symbol: str
     ticker: str
-    price_usd: float
+    price: float
+    currency: str
     price_date: date
     fetched_at: datetime
 
@@ -46,6 +47,36 @@ def _extract_last_price(ticker_symbol: str) -> float:
     return float(history["Close"].iloc[-1])
 
 
+def _extract_currency(ticker_symbol: str) -> str:
+    logger.debug("Extracting currency for ticker=%s", ticker_symbol)
+    ticker = yf.Ticker(ticker_symbol)
+    fast_info = getattr(ticker, "fast_info", None)
+    if fast_info and getattr(fast_info, "get", None):
+        currency = fast_info.get("currency")
+        if currency:
+            logger.debug("Using fast_info currency for ticker=%s", ticker_symbol)
+            return str(currency)
+
+    logger.debug("Fast info currency unavailable for ticker=%s; falling back to history metadata", ticker_symbol)
+    history = ticker.history(period="1d", interval="1d", auto_adjust=False)
+    metadata = getattr(history, "_history_metadata", None)
+    if isinstance(metadata, dict):
+        currency = metadata.get("currency")
+        if currency:
+            logger.debug("Using history metadata currency for ticker=%s", ticker_symbol)
+            return str(currency)
+
+    info = getattr(ticker, "info", None)
+    if isinstance(info, dict):
+        currency = info.get("currency")
+        if currency:
+            logger.debug("Using info currency for ticker=%s", ticker_symbol)
+            return str(currency)
+
+    logger.error("No currency available for ticker=%s", ticker_symbol)
+    raise ValueError(f"No currency available for ticker {ticker_symbol}")
+
+
 def _get_ticker_rows(db: Session) -> list[Tickers]:
     ticker_rows = db.query(Tickers).order_by(Tickers.id).all()
     logger.debug("Loaded %s tickers from database", len(ticker_rows))
@@ -62,16 +93,18 @@ def fetch_current_prices(db: Session) -> list[PricePoint]:
         symbol = ticker_row.symbol
         ticker = ticker_row.ticker
         price = _extract_last_price(ticker)
+        currency = _extract_currency(ticker)
         points.append(
             PricePoint(
                 symbol=symbol,
                 ticker=ticker,
-                price_usd=price,
+                price=price,
+                currency=currency,
                 price_date=today,
                 fetched_at=now,
             )
         )
-        logger.debug("Fetched price symbol=%s ticker=%s price_usd=%s", symbol, ticker, price)
+        logger.debug("Fetched price symbol=%s ticker=%s price=%s currency=%s", symbol, ticker, price, currency)
     logger.info("Fetched %s current prices", len(points))
     return points
 
@@ -87,6 +120,7 @@ def fetch_historical_prices(db: Session, days: int = 30) -> list[PricePoint]:
         symbol = ticker_row.symbol
         ticker = ticker_row.ticker
         logger.debug("Fetching historical prices symbol=%s ticker=%s", symbol, ticker)
+        currency = _extract_currency(ticker)
         history = yf.Ticker(ticker).history(period=history_window, interval="1d", auto_adjust=False)
         if history.empty:
             logger.error("No historical market data available for ticker=%s", ticker)
@@ -114,7 +148,8 @@ def fetch_historical_prices(db: Session, days: int = 30) -> list[PricePoint]:
                 PricePoint(
                     symbol=symbol,
                     ticker=ticker,
-                    price_usd=float(close_price),
+                    price=float(close_price),
+                    currency=currency,
                     price_date=price_date.date(),
                     fetched_at=fetched_at,
                 )
@@ -144,11 +179,12 @@ def upsert_daily_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
     saved_rows: list[Price] = []
     for point in prices:
         logger.debug(
-            "Upserting price symbol=%s ticker=%s price_date=%s price_usd=%s",
+            "Upserting price symbol=%s ticker=%s price_date=%s price=%s currency=%s",
             point.symbol,
             point.ticker,
             point.price_date,
-            point.price_usd,
+            point.price,
+            point.currency,
         )
         ticker_row = _get_or_create_ticker(db, point.symbol, point.ticker)
         existing = (
@@ -157,7 +193,8 @@ def upsert_daily_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
             .first()
         )
         if existing:
-            existing.price_usd = point.price_usd
+            existing.price = point.price
+            existing.currency = point.currency
             existing.fetched_at = point.fetched_at
             existing.source = "yahoo_finance"
             saved_rows.append(existing)
@@ -165,8 +202,8 @@ def upsert_daily_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
             row = Price(
                 ticker_id=ticker_row.id,
                 price_date=point.price_date,
-                price_usd=point.price_usd,
-                currency="USD",
+                price=point.price,
+                currency=point.currency,
                 source="yahoo_finance",
                 fetched_at=point.fetched_at,
             )

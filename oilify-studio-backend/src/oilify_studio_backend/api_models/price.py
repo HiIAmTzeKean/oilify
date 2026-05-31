@@ -9,9 +9,9 @@ class PriceResponse(BaseModel):
     short_name: str | None = None
     long_name: str | None = None
     price_date: date
-    price_usd: float
-    previous_price_usd: float | None = None
-    price_change_usd: float | None = None
+    price: float
+    previous_price: float | None = None
+    price_change: float | None = None
     price_change_pct: float | None = None
     currency: str
     source: str
@@ -25,7 +25,7 @@ class PriceSyncResponse(BaseModel):
 
 class PriceHistoryPointResponse(BaseModel):
     price_date: date
-    price_usd: float
+    price: float
 
 
 class PriceIndicatorPointResponse(BaseModel):
@@ -49,6 +49,7 @@ class PriceHistorySeriesResponse(BaseModel):
     ticker: str
     short_name: str | None = None
     long_name: str | None = None
+    currency: str | None = None
     points: list[PriceHistoryPointResponse]
     technical_indicators: list[PriceIndicatorSeriesResponse] = Field(default_factory=list)
     historical_volatility: list[HistoricalVolatilityPointResponse] = Field(default_factory=list)

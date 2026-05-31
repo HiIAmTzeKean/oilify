@@ -45,6 +45,7 @@ const getIndicatorStroke = (indicatorName: string): string => {
 
 export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
   const getDisplayName = (item: PriceHistorySeries): string => item.short_name ?? item.symbol
+  const chartCurrency = series.find((item) => item.currency)?.currency ?? 'USD'
   const allPoints = series.flatMap((item) => item.points)
   const indicatorPoints = series.flatMap((item) =>
     item.technical_indicators.flatMap((indicatorSeries) => indicatorSeries.points),
@@ -61,7 +62,7 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
     )
   }
 
-  const values = allPoints.map((point) => point.price_usd)
+  const values = allPoints.map((point) => point.price)
   const overlayValues = series.flatMap((item) =>
     item.technical_indicators
       .filter((indicatorSeries) => isPriceOverlayIndicator(indicatorSeries.indicator_name))
@@ -145,7 +146,7 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
             <g key={value}>
               <line x1={MARGIN.left} y1={y} x2={chartRight} y2={y} stroke="rgba(148,163,184,0.15)" strokeDasharray="4 8" />
               <text x={MARGIN.left - 12} y={y + 4} textAnchor="end" className="fill-slate-400" fontSize="12">
-                ${value.toFixed(0)}
+                {chartCurrency} {value.toFixed(0)}
               </text>
             </g>
           )
@@ -171,7 +172,7 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
           const orderedPoints = [...item.points].sort((left, right) => left.price_date.localeCompare(right.price_date))
           const mappedPoints = orderedPoints.map((point) => ({
             x: xForDate(point.price_date),
-            y: yForValue(point.price_usd),
+            y: yForValue(point.price),
           }))
           const path = buildPath(mappedPoints)
           const stroke = getTickerColor(item.ticker)

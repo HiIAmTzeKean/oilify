@@ -47,7 +47,7 @@ class Price(Base):
     )
     ticker_id: Mapped[int] = mapped_column(ForeignKey("tickers.id"), nullable=False)
     price_date: Mapped[date] = mapped_column(Date, nullable=False, default=lambda: date.today())
-    price_usd: Mapped[float] = mapped_column(Float, nullable=False)
+    price: Mapped[float] = mapped_column(Float, nullable=False)
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="USD")
     source: Mapped[str] = mapped_column(String(64), nullable=False, default="yahoo_finance")
     fetched_at: Mapped[datetime] = mapped_column(

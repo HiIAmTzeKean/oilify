@@ -78,20 +78,20 @@ export default function Prices() {
   )
 
   const formatChange = (price: Price): { label: string | null; tone: string } => {
-    if (price.price_change_usd === undefined || price.price_change_usd === null || price.previous_price_usd === null) {
+    if (price.price_change == null || price.previous_price == null) {
       return { label: null, tone: 'bg-slate-400/15 text-slate-300' }
     }
 
-    if (price.price_change_usd > 0) {
+    if (price.price_change > 0) {
       return {
-        label: `▲ ${price.price_change_usd.toFixed(2)} (${price.price_change_pct?.toFixed(2) ?? '0.00'}%)`,
+        label: `▲ ${price.price_change.toFixed(2)} (${price.price_change_pct?.toFixed(2) ?? '0.00'}%)`,
         tone: 'bg-emerald-400/15 text-emerald-300',
       }
     }
 
-    if (price.price_change_usd < 0) {
+    if (price.price_change < 0) {
       return {
-        label: `▼ ${Math.abs(price.price_change_usd).toFixed(2)} (${Math.abs(price.price_change_pct ?? 0).toFixed(2)}%)`,
+        label: `▼ ${Math.abs(price.price_change).toFixed(2)} (${Math.abs(price.price_change_pct ?? 0).toFixed(2)}%)`,
         tone: 'bg-rose-400/15 text-rose-300',
       }
     }
@@ -170,6 +170,19 @@ export default function Prices() {
             <div className="mt-5 grid gap-3">
               {prices.map((price) => {
                 const delta = formatChange(price)
+                const formattedPrice = new Intl.NumberFormat(undefined, {
+                  style: 'currency',
+                  currency: price.currency,
+                  maximumFractionDigits: 2,
+                }).format(price.price)
+                const formattedPreviousPrice = price.previous_price
+                  !== null && price.previous_price !== undefined
+                  ? new Intl.NumberFormat(undefined, {
+                      style: 'currency',
+                      currency: price.currency,
+                      maximumFractionDigits: 2,
+                    }).format(price.previous_price)
+                  : null
 
                 return (
                   <article key={price.ticker} className="rounded-2xl border border-white/10 bg-slate-950/55 p-4">
@@ -179,7 +192,7 @@ export default function Prices() {
                         <p className="mt-1 text-xs text-slate-500">{price.ticker}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-semibold text-amber-200">${price.price_usd.toFixed(2)}</p>
+                        <p className="text-2xl font-semibold text-amber-200">{formattedPrice}</p>
                         {delta.label ? (
                           <span className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${delta.tone}`}>
                             {delta.label}
@@ -189,8 +202,8 @@ export default function Prices() {
                     </div>
                     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
                       <span>Price date: {price.price_date}</span>
-                      {price.previous_price_usd !== null && price.previous_price_usd !== undefined && (
-                        <span>Yesterday: ${price.previous_price_usd.toFixed(2)}</span>
+                      {formattedPreviousPrice !== null && (
+                        <span>Yesterday: {formattedPreviousPrice}</span>
                       )}
                     </div>
                   </article>

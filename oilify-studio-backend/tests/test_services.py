@@ -37,7 +37,8 @@ def test_fetch_current_prices_uses_supported_tickers(db_session, monkeypatch) ->
 
     assert [point.symbol for point in points] == ["WTI", "BRENT"]
     assert [point.ticker for point in points] == ["CL=F", "BZ=F"]
-    assert [point.price_usd for point in points] == [101.25, 104.5]
+    assert [point.price for point in points] == [101.25, 104.5]
+    assert [point.currency for point in points] == ["USD", "USD"]
     assert all(point.price_date == date.today() for point in points)
     assert all(point.fetched_at.tzinfo is not None for point in points)
 
@@ -64,6 +65,10 @@ def test_fetch_historical_prices_returns_last_30_rows_per_ticker(db_session, mon
         def __init__(self, ticker_symbol: str) -> None:
             self.ticker_symbol = ticker_symbol
 
+        @property
+        def fast_info(self) -> dict[str, str]:
+            return {"currency": "USD"}
+
         def history(self, period: str, interval: str, auto_adjust: bool) -> _FakeHistory:
             assert period == "6mo"
             assert interval == "1d"
@@ -88,25 +93,25 @@ def test_fetch_historical_prices_returns_last_30_rows_per_ticker(db_session, mon
 def test_upsert_daily_prices_inserts_and_updates(db_session) -> None:
     today = date.today()
     first_batch = [
-        PricePoint("WTI", "CL=F", 100.0, today, datetime.now(UTC)),
-        PricePoint("BRENT", "BZ=F", 102.0, today, datetime.now(UTC)),
+        PricePoint("WTI", "CL=F", 100.0, "USD", today, datetime.now(UTC)),
+        PricePoint("BRENT", "BZ=F", 102.0, "USD", today, datetime.now(UTC)),
     ]
 
     inserted_rows = upsert_daily_prices(db_session, first_batch)
 
     assert len(inserted_rows) == 2
 
-    second_batch = [PricePoint("WTI", "CL=F", 110.0, today, datetime.now(UTC))]
+    second_batch = [PricePoint("WTI", "CL=F", 110.0, "USD", today, datetime.now(UTC))]
     updated_rows = upsert_daily_prices(db_session, second_batch)
 
-    assert updated_rows[0].price_usd == 110.0
+    assert updated_rows[0].price == 110.0
     stored_row = (
         db_session.query(Price)
         .join(Price.ticker)
         .filter(Tickers.symbol == "WTI", Price.price_date == today)
         .one()
     )
-    assert stored_row.price_usd == 110.0
+    assert stored_row.price == 110.0
     assert stored_row.source == "yahoo_finance"
 
 
@@ -124,7 +129,7 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
             Price(
                 ticker_id=wti_ticker.id,
                 price_date=yesterday,
-                price_usd=99.0,
+                price=99.0,
                 currency="USD",
                 source="yahoo_finance",
                 fetched_at=datetime.now(UTC),
@@ -132,7 +137,7 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
             Price(
                 ticker_id=wti_ticker.id,
                 price_date=today,
-                price_usd=100.0,
+                price=100.0,
                 currency="USD",
                 source="yahoo_finance",
                 fetched_at=datetime.now(UTC),
@@ -140,7 +145,7 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
             Price(
                 ticker_id=brent_ticker.id,
                 price_date=yesterday,
-                price_usd=101.0,
+                price=101.0,
                 currency="USD",
                 source="yahoo_finance",
                 fetched_at=datetime.now(UTC),
@@ -148,7 +153,7 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
             Price(
                 ticker_id=brent_ticker.id,
                 price_date=today,
-                price_usd=102.0,
+                price=102.0,
                 currency="USD",
                 source="yahoo_finance",
                 fetched_at=datetime.now(UTC),
@@ -179,7 +184,7 @@ def test_rebuild_market_analytics_persists_indicator_rows(db_session) -> None:
             Price(
                 ticker_id=ticker_ids["CL=F"],
                 price_date=price_date,
-                price_usd=100.0 + day_offset,
+                price=100.0 + day_offset,
                 currency="USD",
                 source="yahoo_finance",
                 fetched_at=datetime.now(UTC),
@@ -189,7 +194,7 @@ def test_rebuild_market_analytics_persists_indicator_rows(db_session) -> None:
             Price(
                 ticker_id=ticker_ids["BZ=F"],
                 price_date=price_date,
-                price_usd=110.0 + day_offset,
+                price=110.0 + day_offset,
                 currency="USD",
                 source="yahoo_finance",
                 fetched_at=datetime.now(UTC),

@@ -10,12 +10,12 @@ def _make_price(
     *,
     ticker_id: int,
     price_date: date,
-    price_usd: float,
+    price: float,
 ) -> Price:
     return Price(
         ticker_id=ticker_id,
         price_date=price_date,
-        price_usd=price_usd,
+        price=price,
         currency="USD",
         source="yahoo_finance",
         fetched_at=datetime.now(UTC),
@@ -24,8 +24,8 @@ def _make_price(
 
 def test_refresh_prices_returns_upserted_rows(client, mocker) -> None:
     rows = [
-        _make_price(ticker_id=1, price_date=date.today(), price_usd=101.0),
-        _make_price(ticker_id=2, price_date=date.today(), price_usd=103.5),
+        _make_price(ticker_id=1, price_date=date.today(), price=101.0),
+        _make_price(ticker_id=2, price_date=date.today(), price=103.5),
     ]
     mocker.patch(
         "oilify_studio_backend.router.price_router.ingest_daily_prices",
@@ -50,10 +50,10 @@ def test_latest_prices_returns_latest_rows(client, db_session) -> None:
 
     db_session.add_all(
         [
-            _make_price(ticker_id=wti_ticker.id, price_date=yesterday, price_usd=99.0),
-            _make_price(ticker_id=wti_ticker.id, price_date=today, price_usd=100.0),
-            _make_price(ticker_id=brent_ticker.id, price_date=yesterday, price_usd=101.0),
-            _make_price(ticker_id=brent_ticker.id, price_date=today, price_usd=102.0),
+            _make_price(ticker_id=wti_ticker.id, price_date=yesterday, price=99.0),
+            _make_price(ticker_id=wti_ticker.id, price_date=today, price=100.0),
+            _make_price(ticker_id=brent_ticker.id, price_date=yesterday, price=101.0),
+            _make_price(ticker_id=brent_ticker.id, price_date=today, price=102.0),
         ]
     )
     db_session.commit()
@@ -67,8 +67,8 @@ def test_latest_prices_returns_latest_rows(client, db_session) -> None:
     assert payload_by_symbol["BZ=F"]["short_name"] == "BZ=F short"
     assert payload_by_symbol["CL=F"]["price_date"] == today.isoformat()
     assert payload_by_symbol["BZ=F"]["price_date"] == today.isoformat()
-    assert payload_by_symbol["CL=F"]["previous_price_usd"] == 99.0
-    assert payload_by_symbol["CL=F"]["price_change_usd"] == 1.0
+    assert payload_by_symbol["CL=F"]["previous_price"] == 99.0
+    assert payload_by_symbol["CL=F"]["price_change"] == 1.0
     assert round(payload_by_symbol["CL=F"]["price_change_pct"], 2) == 1.01
 
 
@@ -80,8 +80,8 @@ def test_daily_prices_filters_by_date(client, db_session) -> None:
 
     db_session.add_all(
         [
-            _make_price(ticker_id=wti_ticker.id, price_date=other_day, price_usd=98.0),
-            _make_price(ticker_id=wti_ticker.id, price_date=today, price_usd=100.0),
+            _make_price(ticker_id=wti_ticker.id, price_date=other_day, price=98.0),
+            _make_price(ticker_id=wti_ticker.id, price_date=today, price=100.0),
         ]
     )
     db_session.commit()
@@ -92,7 +92,7 @@ def test_daily_prices_filters_by_date(client, db_session) -> None:
     payload = response.json()
     assert len(payload) == 1
     assert payload[0]["price_date"] == today.isoformat()
-    assert payload[0]["price_usd"] == 100.0
+    assert payload[0]["price"] == 100.0
 
 
 def test_history_prices_returns_grouped_series(client, db_session, mocker) -> None:
@@ -127,10 +127,10 @@ def test_history_prices_returns_grouped_series(client, db_session, mocker) -> No
     db_session.commit()
 
     points = [
-        PricePoint("CL=F", "CL=F", 99.5, yesterday, datetime.now(UTC)),
-        PricePoint("CL=F", "CL=F", 100.5, today, datetime.now(UTC)),
-        PricePoint("BZ=F", "BZ=F", 101.5, yesterday, datetime.now(UTC)),
-        PricePoint("BZ=F", "BZ=F", 102.5, today, datetime.now(UTC)),
+        PricePoint("CL=F", "CL=F", 99.5, "USD", yesterday, datetime.now(UTC)),
+        PricePoint("CL=F", "CL=F", 100.5, "USD", today, datetime.now(UTC)),
+        PricePoint("BZ=F", "BZ=F", 101.5, "USD", yesterday, datetime.now(UTC)),
+        PricePoint("BZ=F", "BZ=F", 102.5, "USD", today, datetime.now(UTC)),
     ]
     mocker.patch(
         "oilify_studio_backend.router.price_router.fetch_historical_prices",

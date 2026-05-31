@@ -22,7 +22,8 @@ def _build_price_points() -> list[PricePoint]:
                 PricePoint(
                     symbol=ticker,
                     ticker=ticker,
-                    price_usd=base_price + day_offset,
+                    price=base_price + day_offset,
+                    currency="USD",
                     price_date=date.today() - timedelta(days=29 - day_offset),
                     fetched_at=fetched_at,
                 )

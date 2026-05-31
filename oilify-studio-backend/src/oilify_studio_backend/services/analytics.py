@@ -24,7 +24,7 @@ ANNUALIZATION_FACTOR = 252
 @dataclass(frozen=True)
 class PriceSeriesPoint:
     price_date: date
-    price_usd: float
+    price: float
 
 
 @dataclass(frozen=True)
@@ -42,7 +42,7 @@ def _group_price_rows(db: Session) -> dict[int, list[PriceSeriesPoint]]:
     )
     for row in rows:
         grouped_rows[row.ticker_id].append(
-            PriceSeriesPoint(price_date=row.price_date, price_usd=row.price_usd)
+            PriceSeriesPoint(price_date=row.price_date, price=row.price)
         )
     return grouped_rows
 
@@ -52,11 +52,11 @@ def _build_sma_points(points: list[PriceSeriesPoint], window: int) -> list[tuple
         return []
 
     results: list[tuple[date, float]] = []
-    rolling_total = sum(point.price_usd for point in points[:window])
+    rolling_total = sum(point.price for point in points[:window])
     results.append((points[window - 1].price_date, rolling_total / window))
 
     for index in range(window, len(points)):
-        rolling_total += points[index].price_usd - points[index - window].price_usd
+        rolling_total += points[index].price - points[index - window].price
         results.append((points[index].price_date, rolling_total / window))
 
     return results
@@ -67,11 +67,11 @@ def _build_ema_points(points: list[PriceSeriesPoint], window: int) -> list[tuple
         return []
 
     multiplier = 2 / (window + 1)
-    ema_value = points[0].price_usd
+    ema_value = points[0].price
     results: list[tuple[date, float]] = [(points[0].price_date, ema_value)]
 
     for point in points[1:]:
-        ema_value = (point.price_usd - ema_value) * multiplier + ema_value
+        ema_value = (point.price - ema_value) * multiplier + ema_value
         results.append((point.price_date, ema_value))
 
     return results
@@ -84,7 +84,7 @@ def _build_rsi_points(points: list[PriceSeriesPoint], window: int) -> list[tuple
     gains = 0.0
     losses = 0.0
     for index in range(1, window + 1):
-        delta = points[index].price_usd - points[index - 1].price_usd
+        delta = points[index].price - points[index - 1].price
         gains += max(delta, 0.0)
         losses += max(-delta, 0.0)
 
@@ -101,7 +101,7 @@ def _build_rsi_points(points: list[PriceSeriesPoint], window: int) -> list[tuple
     results.append((points[window].price_date, _calculate_rsi(average_gain, average_loss)))
 
     for index in range(window + 1, len(points)):
-        delta = points[index].price_usd - points[index - 1].price_usd
+        delta = points[index].price - points[index - 1].price
         gain = max(delta, 0.0)
         loss = max(-delta, 0.0)
         average_gain = ((average_gain * (window - 1)) + gain) / window
@@ -121,8 +121,8 @@ def _build_historical_volatility_points(
 
     returns: list[float] = []
     for index in range(1, len(points)):
-        previous_price = points[index - 1].price_usd
-        current_price = points[index].price_usd
+        previous_price = points[index - 1].price
+        current_price = points[index].price
         if previous_price <= 0 or current_price <= 0:
             continue
         returns.append(log(current_price / previous_price))

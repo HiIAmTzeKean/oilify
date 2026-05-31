@@ -36,13 +36,13 @@ def _to_response(row: Price, db: Session) -> PriceResponse:
     if ticker is None:
         ticker = db.query(Tickers).filter(Tickers.id == row.ticker_id).one_or_none()
 
-    previous_price_usd = getattr(row, "previous_price_usd", None)
-    price_change_usd = None
+    previous_price = getattr(row, "previous_price", None)
+    price_change = None
     price_change_pct = None
-    if previous_price_usd is not None:
-        price_change_usd = row.price_usd - previous_price_usd
-        if previous_price_usd != 0:
-            price_change_pct = (price_change_usd / previous_price_usd) * 100
+    if previous_price is not None:
+        price_change = row.price - previous_price
+        if previous_price != 0:
+            price_change_pct = (price_change / previous_price) * 100
 
     return PriceResponse(
         symbol=ticker.symbol if ticker is not None else "",
@@ -50,9 +50,9 @@ def _to_response(row: Price, db: Session) -> PriceResponse:
         short_name=ticker.short_name if ticker is not None else None,
         long_name=ticker.long_name if ticker is not None else None,
         price_date=row.price_date,
-        price_usd=row.price_usd,
-        previous_price_usd=previous_price_usd,
-        price_change_usd=price_change_usd,
+        price=row.price,
+        previous_price=previous_price,
+        price_change=price_change,
         price_change_pct=price_change_pct,
         currency=row.currency,
         source=row.source,
@@ -63,15 +63,18 @@ def _to_response(row: Price, db: Session) -> PriceResponse:
 def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResponse]:
     points = fetch_historical_prices(db, days=days)
     grouped_points: dict[tuple[str, str], list[PriceHistoryPointResponse]] = defaultdict(list)
+    series_currency: dict[tuple[str, str], str] = {}
     cutoff_date: date | None = None
 
     for point in points:
         if cutoff_date is None or point.price_date < cutoff_date:
             cutoff_date = point.price_date
-        grouped_points[(point.symbol, point.ticker)].append(
+        series_key = (point.symbol, point.ticker)
+        series_currency.setdefault(series_key, point.currency)
+        grouped_points[series_key].append(
             PriceHistoryPointResponse(
                 price_date=point.price_date,
-                price_usd=point.price_usd,
+                price=point.price,
             )
         )
 
@@ -130,6 +133,7 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
                 ticker=ticker_row.ticker,
                 short_name=ticker_row.short_name,
                 long_name=ticker_row.long_name,
+                currency=series_currency.get(series_key),
                 points=sorted(point_list, key=lambda point: point.price_date),
                 technical_indicators=indicator_list,
                 historical_volatility=sorted(
@@ -167,14 +171,12 @@ def create_price_router() -> APIRouter:
             rows = get_latest_prices(db)
             prices = [_to_response(row.current, db) for row in rows]
             for index, row in enumerate(rows):
-                previous_price_usd = row.previous.price_usd if row.previous is not None else None
-                prices[index].previous_price_usd = previous_price_usd
-                if previous_price_usd is not None:
-                    prices[index].price_change_usd = prices[index].price_usd - previous_price_usd
-                    if previous_price_usd != 0:
-                        prices[index].price_change_pct = (
-                            prices[index].price_change_usd / previous_price_usd
-                        ) * 100
+                previous_price = row.previous.price if row.previous is not None else None
+                prices[index].previous_price = previous_price
+                if previous_price is not None:
+                    prices[index].price_change = prices[index].price - previous_price
+                    if previous_price != 0:
+                        prices[index].price_change_pct = (prices[index].price_change / previous_price) * 100
             logger.debug(
                 "Latest price lookup returned symbols=%s",
                 [price.symbol for price in prices],
