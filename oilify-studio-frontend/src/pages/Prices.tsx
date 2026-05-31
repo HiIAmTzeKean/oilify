@@ -8,12 +8,14 @@ import {
   type Price,
   type PriceHistorySeries,
 } from '../lib/api'
+import { getTickerColor } from '../lib/tickerColor'
 
 const HISTORY_DAYS = 30
 
 export default function Prices() {
   const [prices, setPrices] = React.useState<Price[]>([])
   const [history, setHistory] = React.useState<PriceHistorySeries[]>([])
+  const [selectedTickers, setSelectedTickers] = React.useState<string[]>([])
   const [loadingPrices, setLoadingPrices] = React.useState(true)
   const [loadingHistory, setLoadingHistory] = React.useState(true)
   const [syncing, setSyncing] = React.useState(false)
@@ -53,6 +55,39 @@ export default function Prices() {
     void loadLatestPrices()
     void loadHistory()
   }, [loadHistory, loadLatestPrices])
+
+  React.useEffect(() => {
+    if (history.length === 0) {
+      return
+    }
+
+    setSelectedTickers((currentSelection) => {
+      const availableTickers = history.map((item) => item.ticker)
+      const nextSelection = currentSelection.filter((ticker) => availableTickers.includes(ticker))
+      return nextSelection.length > 0 ? nextSelection : availableTickers
+    })
+  }, [history])
+
+  const getDisplayName = (item: Price): string => item.short_name ?? item.symbol
+  const getSeriesDisplayName = (item: PriceHistorySeries): string => item.short_name ?? item.symbol
+
+  const visibleHistory = React.useMemo(
+    () => history.filter((item) => selectedTickers.includes(item.ticker)),
+    [history, selectedTickers],
+  )
+
+  function toggleTicker(ticker: string) {
+    setSelectedTickers((currentSelection) => {
+      if (currentSelection.includes(ticker)) {
+        if (currentSelection.length === 1) {
+          return currentSelection
+        }
+        return currentSelection.filter((item) => item !== ticker)
+      }
+
+      return [...currentSelection, ticker]
+    })
+  }
 
   async function handleRefresh() {
     setSyncing(true)
@@ -111,10 +146,10 @@ export default function Prices() {
           ) : (
             <div className="mt-5 grid gap-3">
               {prices.map((price) => (
-                <article key={price.symbol} className="rounded-2xl border border-white/10 bg-slate-950/55 p-4">
+                <article key={price.ticker} className="rounded-2xl border border-white/10 bg-slate-950/55 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm text-slate-400">{price.symbol}</p>
+                      <p className="text-sm text-slate-400">{getDisplayName(price)}</p>
                       <p className="mt-1 text-xs text-slate-500">{price.ticker}</p>
                     </div>
                     <p className="text-2xl font-semibold text-amber-200">${price.price_usd.toFixed(2)}</p>
@@ -130,12 +165,57 @@ export default function Prices() {
         </section>
 
         <section className="space-y-4">
+          {!loadingHistory && history.length > 0 && (
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4 shadow-xl shadow-black/10 backdrop-blur">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.25em] text-slate-400">Plot filters</p>
+                  <p className="mt-2 text-sm text-slate-300">Choose which tickers appear in the line chart.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTickers(history.map((item) => item.ticker))}
+                  className="rounded-full border border-white/10 bg-slate-950/55 px-3 py-1.5 text-xs text-slate-200 transition hover:border-amber-300/30 hover:bg-amber-300/10"
+                >
+                  Show all
+                </button>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {history.map((item) => {
+                  const selected = selectedTickers.includes(item.ticker)
+                  return (
+                    <button
+                      key={item.ticker}
+                      type="button"
+                      onClick={() => toggleTicker(item.ticker)}
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs transition ${
+                        selected
+                          ? 'border-amber-300/40 bg-amber-300/15 text-amber-100'
+                          : 'border-white/10 bg-slate-950/55 text-slate-400 hover:border-white/20 hover:text-slate-200'
+                      }`}
+                    >
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: getTickerColor(item.ticker), opacity: selected ? 1 : 0.35 }}
+                      />
+                      <span>{getSeriesDisplayName(item)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {loadingHistory ? (
             <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/55 p-6 text-sm text-slate-300">
               Loading the 30-day chart...
             </div>
+          ) : visibleHistory.length === 0 ? (
+            <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/55 p-6 text-sm text-slate-300">
+              Select at least one ticker to plot its line chart.
+            </div>
           ) : (
-            <PriceHistoryChart series={history} />
+            <PriceHistoryChart series={visibleHistory} />
           )}
 
           <div className="grid gap-4 sm:grid-cols-3">

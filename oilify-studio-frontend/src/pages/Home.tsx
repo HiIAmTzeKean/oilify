@@ -44,7 +44,7 @@ export default function Home() {
         <article className="rounded-3xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-lg font-semibold text-white">30-day chart</h2>
           <p className="mt-3 text-sm leading-6 text-slate-300">
-            Historical prices are grouped by symbol and rendered as a compact line chart.
+            Historical prices are grouped by instrument and rendered as a compact line chart.
           </p>
         </article>
         <article className="rounded-3xl border border-white/10 bg-white/5 p-6">

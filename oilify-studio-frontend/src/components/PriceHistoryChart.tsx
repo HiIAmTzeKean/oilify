@@ -1,14 +1,10 @@
 import React from 'react'
 
 import type { PriceHistorySeries } from '../lib/api'
+import { getTickerColor } from '../lib/tickerColor'
 
 type PriceHistoryChartProps = {
   series: PriceHistorySeries[]
-}
-
-const COLORS: Record<string, string> = {
-  WTI: '#f59e0b',
-  BRENT: '#38bdf8',
 }
 
 const WIDTH = 920
@@ -32,6 +28,7 @@ const buildPath = (
 }
 
 export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
+  const getDisplayName = (item: PriceHistorySeries): string => item.short_name ?? item.symbol
   const allPoints = series.flatMap((item) => item.points)
   const allDates = Array.from(new Set(allPoints.map((point) => point.price_date))).sort()
 
@@ -81,13 +78,13 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
       <div className="flex flex-wrap items-center justify-between gap-4 px-1 pb-4">
         <div>
           <p className="text-sm uppercase tracking-[0.25em] text-slate-400">30-day history</p>
-          <p className="mt-2 text-lg font-semibold text-white">WTI and Brent closing prices</p>
+          <p className="mt-2 text-lg font-semibold text-white">Tracked benchmark closing prices</p>
         </div>
         <div className="flex flex-wrap gap-3 text-xs text-slate-300">
           {series.map((item) => (
-            <div key={item.symbol} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[item.symbol] ?? '#f8fafc' }} />
-              <span>{item.symbol}</span>
+            <div key={item.ticker} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getTickerColor(item.ticker) }} />
+              <span>{getDisplayName(item)}</span>
             </div>
           ))}
         </div>
@@ -129,13 +126,13 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
             y: yForValue(point.price_usd),
           }))
           const path = buildPath(mappedPoints)
-          const stroke = COLORS[item.symbol] ?? '#f8fafc'
+          const stroke = getTickerColor(item.ticker)
 
           return (
-            <React.Fragment key={item.symbol}>
+            <React.Fragment key={item.ticker}>
               <path d={path} fill="none" stroke={stroke} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               {mappedPoints.map((point, index) => (
-                <circle key={`${item.symbol}-${orderedPoints[index].price_date}`} cx={point.x} cy={point.y} r="4" fill={stroke} stroke="#0f172a" strokeWidth="2" />
+                <circle key={`${item.ticker}-${orderedPoints[index].price_date}`} cx={point.x} cy={point.y} r="4" fill={stroke} stroke="#0f172a" strokeWidth="2" />
               ))}
             </React.Fragment>
           )
