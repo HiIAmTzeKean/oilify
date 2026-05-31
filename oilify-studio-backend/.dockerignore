@@ -1,0 +1,14 @@
+**/.git
+__pycache__
+*.pyc
+.pytest_cache
+.egg-info
+
+recnexteval
+**/data
+**/logs
+**/.venv
+**/docs
+**/test
+**/scripts
+**/uv.lock

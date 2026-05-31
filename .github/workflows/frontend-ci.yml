@@ -1,0 +1,93 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "recnexteval-studio-frontend/**"
+  pull_request:
+    branches: [master]
+    paths:
+      - "recnexteval-studio-frontend/**"
+
+defaults:
+  run:
+    working-directory: recnexteval-studio-frontend
+
+jobs:
+  type-check:
+    name: Type check (tsc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: recnexteval-studio-frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Run tsc
+        run: npm run type-check
+
+  lint:
+    name: Lint (eslint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: recnexteval-studio-frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  test:
+    name: Tests (vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: recnexteval-studio-frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: recnexteval-studio-frontend/coverage/
+          retention-days: 7
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: recnexteval-studio-frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production

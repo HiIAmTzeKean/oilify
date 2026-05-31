@@ -1,0 +1,23 @@
+[project]
+name = "oilify"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "oilify-backend",
+]
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'darwin'",
+]
+
+[tool.uv.workspace]
+members = [
+    "oilify-studio-backend",
+]
+
+[tool.uv.sources]
+oilify-backend = { workspace = true }

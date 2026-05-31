@@ -1,0 +1,49 @@
+{
+  "name": "oilify-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview",
+    "type-check": "node ./node_modules/typescript/lib/tsc.js --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.16",
+    "dotenv": "^17.2.3",
+    "fuse.js": "^7.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.5",
+    "react-toastify": "^11.0.5"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^25.0.3",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react-swc": "^4.2.0",
+    "@vitest/coverage-v8": "^4.1.5",
+    "@vitest/ui": "^4.1.5",
+    "@eslint/js": "^9.18.0",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.18.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.18",
+    "typescript-eslint": "^8.20.0",
+    "happy-dom": "^20.9.0",
+    "jsdom": "^29.1.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.16",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12",
+    "vite-plugin-mkcert": "^1.17.9",
+    "vitest": "^4.1.5"
+  }
+}

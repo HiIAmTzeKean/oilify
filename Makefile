@@ -1,0 +1,35 @@
+# Makefile for Oilify
+# Provides convenient targets for running docker compose without relying on a .env file
+
+# Set environment. Users can override ENV on the CLI (e.g., make up ENV=prod)
+ENV ?= dev
+
+# Derive project name and compose file from ENV
+PROJECT_NAME := oilify-$(ENV)
+COMPOSE_FILE := docker-compose.$(ENV).yml
+
+DC = COMPOSE_PROJECT_NAME=$(PROJECT_NAME) docker compose -f $(COMPOSE_FILE)
+
+.PHONY: help up up-dev up-prod down
+
+help:
+	@echo "Makefile targets:"
+	@echo "  make up                ->  start services (detached, builds first). Default ENV=dev"
+	@echo "  make up-dev            -> start services using docker-compose.dev.yml"
+	@echo "  make up-prod           -> start services using docker-compose.prod.yml"
+	@echo "  make down              -> stop and remove services"
+
+up:
+	$(DC) up
+
+rebuild:
+	$(DC) up --build
+
+up-dev:
+	$(MAKE) up ENV=dev
+
+up-prod:
+	$(MAKE) up ENV=prod
+
+down:
+	$(DC) down

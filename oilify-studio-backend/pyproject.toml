@@ -1,0 +1,62 @@
+[project]
+name = "oilify-backend"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "apscheduler>=3.10.4",
+    "fastapi[standard]>=0.123.4",
+    "psycopg[binary]>=3.3.2",
+    "sqlalchemy>=2.0.41",
+    "uvicorn[standard]>=0.35.0",
+    "yfinance>=0.2.65",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.9,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "oilify_backend"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "pytest-mock>=3.14",
+    "ruff>=0.9",
+    "mypy>=1.13",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/oilify"]
+pythonpath = ["src"]
+addopts = "-ra --strict-markers"
+
+[tool.coverage.run]
+branch = true
+source = ["oilify_backend"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 85
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+check_untyped_defs = false
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'darwin'",
+]

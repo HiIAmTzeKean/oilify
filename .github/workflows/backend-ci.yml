@@ -1,0 +1,70 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "recnexteval-studio-backend/**"
+      - "pyproject.toml"
+      - "uv.lock"
+  pull_request:
+    branches: [master]
+    paths:
+      - "recnexteval-studio-backend/**"
+      - "pyproject.toml"
+      - "uv.lock"
+
+# ubuntu-24.04-arm matches the lock file's linux/aarch64 required-environment
+defaults:
+  run:
+    working-directory: recnexteval-studio-backend
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Check lint
+        run: uv run ruff check src
+
+      - name: Check format
+        run: uv run ruff format --check src
+
+  type-check:
+    name: Type check (mypy)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Run mypy
+        run: uv run mypy src
+
+  test:
+    name: Tests (pytest)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov --cov-report=xml
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: recnexteval-studio-backend/coverage.xml
+          retention-days: 7

@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: oilify_db
+    networks:
+      - oilify-network
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./oilify-studio-backend
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./oilify-studio-backend/src:/src/src
+    environment:
+      PYTHONUNBUFFERED: 1
+      APP_NAME: Oilify API
+      DATABASE_URL: postgresql+psycopg://postgres:password@postgres:5432/oilify_db
+      OIL_PRICE_SCHEDULE_HOURS: "0,8,16"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - oilify-network
+
+  frontend:
+    build:
+      context: ./oilify-studio-frontend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "80:80"
+    volumes:
+      - ./oilify-studio-frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - oilify-network
+    restart: unless-stopped
+
+networks:
+  oilify-network:
+    driver: bridge
+
+volumes:
+  pgdata:
