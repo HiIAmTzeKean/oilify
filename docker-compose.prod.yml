@@ -31,7 +31,7 @@ services:
       PYTHONUNBUFFERED: 1
       APP_NAME: Oilify API
       DATABASE_URL: postgresql+psycopg://postgres:password@postgres:5432/oilify_db
-      OIL_PRICE_SCHEDULE_HOURS: "0,8,16"
+      PRICE_SCHEDULE_HOURS: "0,8,16"
     depends_on:
       postgres:
         condition: service_healthy

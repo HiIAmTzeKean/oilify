@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from oilify_studio_backend.db.schema import Price, Tickers
 from oilify_studio_backend.db.seed import seed_initial_tickers
-from oilify_studio_backend.services.oil_price import PricePoint
+from oilify_studio_backend.services.price import PricePoint
 
 
 def _build_price_points() -> list[PricePoint]:

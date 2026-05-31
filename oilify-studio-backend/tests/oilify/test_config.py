@@ -25,7 +25,7 @@ def test_settings_use_oilify_defaults(monkeypatch) -> None:
     ]
     assert settings.LOG_LEVEL == "INFO"
     assert settings.DATABASE_URL.startswith("postgresql+psycopg://")
-    assert settings.OIL_PRICE_SCHEDULE_HOURS == "0,8,16"
+    assert settings.PRICE_SCHEDULE_HOURS == "0,8,16"
     assert settings.SCHEDULER_ENABLED is True
 
 
@@ -39,7 +39,7 @@ def test_settings_read_environment_overrides(monkeypatch) -> None:
     monkeypatch.setenv("CORS_ORIGINS", "https://example.com, http://localhost")
     monkeypatch.setenv("LOG_LEVEL", "debug")
     monkeypatch.setenv("DATABASE_URL", "sqlite:///./oilify_custom.db")
-    monkeypatch.setenv("OIL_PRICE_SCHEDULE_HOURS", "1, 5, 9")
+    monkeypatch.setenv("PRICE_SCHEDULE_HOURS", "1, 5, 9")
     monkeypatch.setenv("SCHEDULER_ENABLED", "false")
 
     settings = Settings()
@@ -53,7 +53,7 @@ def test_settings_read_environment_overrides(monkeypatch) -> None:
     assert settings.CORS_ORIGINS == ["https://example.com", "http://localhost"]
     assert settings.LOG_LEVEL == "DEBUG"
     assert settings.DATABASE_URL == "sqlite:///./oilify_custom.db"
-    assert settings.OIL_PRICE_SCHEDULE_HOURS == "1, 5, 9"
+    assert settings.PRICE_SCHEDULE_HOURS == "1, 5, 9"
     assert settings.SCHEDULER_ENABLED is False
 
 

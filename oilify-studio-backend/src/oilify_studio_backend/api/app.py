@@ -34,12 +34,12 @@ def create_app() -> FastAPI:
         logger.debug("Creating database tables and seeding ticker metadata")
         create_tables()
         seed_initial_tickers()
-        logger.debug("Starting oil price scheduler")
+        logger.debug("Starting price scheduler")
         start_scheduler()
         logger.info("Oilify application startup complete")
         yield
         logger.info("Oilify application shutdown beginning")
-        logger.debug("Stopping oil price scheduler")
+        logger.debug("Stopping price scheduler")
         stop_scheduler()
         logger.info("Oilify application shutdown complete")
 

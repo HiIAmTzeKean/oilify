@@ -1,1 +1,1 @@
-"""Service layer for Oilify backend."""
+"""Service layer for the backend."""

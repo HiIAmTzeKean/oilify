@@ -1,7 +1,7 @@
 import React from 'react'
 import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
 import Home from './pages/Home'
-import OilPrices from './pages/OilPrices'
+import Prices from './pages/Prices'
 
 export default function App() {
   return (
@@ -36,7 +36,7 @@ export default function App() {
         <main className="mx-auto w-full max-w-7xl px-6 py-8 sm:px-10 lg:px-12">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/prices" element={<OilPrices />} />
+            <Route path="/prices" element={<Prices />} />
           </Routes>
         </main>
       </div>

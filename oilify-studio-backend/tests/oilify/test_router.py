@@ -1,9 +1,9 @@
-"""Tests for the Oilify oil price router."""
+"""Tests for the Oilify price router."""
 
 from datetime import UTC, date, datetime, timedelta
 
 from oilify_studio_backend.db.schema import Price, Tickers
-from oilify_studio_backend.services.oil_price import PricePoint
+from oilify_studio_backend.services.price import PricePoint
 
 
 def _make_price(
@@ -28,7 +28,7 @@ def test_refresh_prices_returns_upserted_rows(client, mocker) -> None:
         _make_price(ticker_id=2, price_date=date.today(), price_usd=103.5),
     ]
     mocker.patch(
-        "oilify_studio_backend.router.oil_price_router.ingest_daily_prices",
+        "oilify_studio_backend.router.price_router.ingest_daily_prices",
         return_value=rows,
     )
 
@@ -98,7 +98,7 @@ def test_history_prices_returns_grouped_series(client, mocker) -> None:
         PricePoint("BRENT", "BZ=F", 102.5, today, datetime.now(UTC)),
     ]
     mocker.patch(
-        "oilify_studio_backend.router.oil_price_router.fetch_historical_prices",
+        "oilify_studio_backend.router.price_router.fetch_historical_prices",
         return_value=points,
     )
 

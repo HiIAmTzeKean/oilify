@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from oilify_studio_backend.db.connection import get_database_manager
 from oilify_studio_backend.db.schema import Price, Tickers
-from oilify_studio_backend.services.oil_price import MARKET_TICKERS, fetch_historical_prices, upsert_daily_prices
+from oilify_studio_backend.services.price import TRACKED_TICKERS, fetch_historical_prices, upsert_daily_prices
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ def _seed_tickers(session) -> None:
     existing_symbols = set(session.scalars(select(Tickers.symbol)).all())
     missing_tickers = [
         Tickers(symbol=symbol, ticker=ticker)
-        for symbol, ticker in MARKET_TICKERS.items()
+        for symbol, ticker in TRACKED_TICKERS.items()
         if symbol not in existing_symbols
     ]
 
@@ -44,9 +44,9 @@ def _seed_tickers(session) -> None:
 def _seed_historical_prices(session) -> None:
     existing_price = session.execute(select(Price.id).limit(1)).first()
     if existing_price:
-        logger.debug("Historical oil price seed already present")
+        logger.debug("Historical price seed already present")
         return
 
-    logger.info("Seeding initial historical oil prices")
+    logger.info("Seeding initial historical prices")
     points = fetch_historical_prices(days=30)
     upsert_daily_prices(session, points)

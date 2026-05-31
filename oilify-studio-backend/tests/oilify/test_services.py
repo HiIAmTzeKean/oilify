@@ -1,9 +1,9 @@
-"""Tests for the Oilify oil price service layer."""
+"""Tests for the Oilify price service layer."""
 
 from datetime import UTC, date, datetime, timedelta
 
 from oilify_studio_backend.db.schema import Price, Tickers
-from oilify_studio_backend.services.oil_price import (
+from oilify_studio_backend.services.price import (
     PricePoint,
     fetch_current_prices,
     fetch_historical_prices,
@@ -16,7 +16,7 @@ def test_fetch_current_prices_uses_supported_tickers(monkeypatch) -> None:
     prices = {"CL=F": 101.25, "BZ=F": 104.5}
 
     monkeypatch.setattr(
-        "oilify_studio_backend.services.oil_price._extract_last_price",
+        "oilify_studio_backend.services.price._extract_last_price",
         lambda ticker_symbol: prices[ticker_symbol],
     )
 
@@ -59,7 +59,7 @@ def test_fetch_historical_prices_returns_last_30_rows_per_ticker(monkeypatch) ->
             ]
             return _FakeHistory(rows)
 
-    monkeypatch.setattr("oilify_studio_backend.services.oil_price.yf.Ticker", _FakeTicker)
+    monkeypatch.setattr("oilify_studio_backend.services.price.yf.Ticker", _FakeTicker)
 
     points = fetch_historical_prices()
 

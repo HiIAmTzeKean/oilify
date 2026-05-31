@@ -5,7 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from oilify_studio_backend.config import get_settings
 from oilify_studio_backend.db import get_database_manager
-from oilify_studio_backend.services.oil_price import ingest_daily_prices
+from oilify_studio_backend.services.price import ingest_daily_prices
 
 
 logger = logging.getLogger(__name__)
@@ -42,13 +42,13 @@ def start_scheduler() -> None:
         logger.debug("Price scheduler already running")
         return
 
-    hours = _parse_hours(settings.OIL_PRICE_SCHEDULE_HOURS)
+    hours = _parse_hours(settings.PRICE_SCHEDULE_HOURS)
     logger.info("Starting price scheduler for UTC hours=%s", hours)
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(
         run_price_job,
         CronTrigger(hour=hours, minute=0),
-        id="oilify-price-job",
+        id="price-job",
         replace_existing=True,
     )
     scheduler.start()

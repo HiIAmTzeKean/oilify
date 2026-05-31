@@ -11,7 +11,7 @@ from oilify_studio_backend.db.schema import Price, Tickers
 logger = logging.getLogger(__name__)
 
 
-MARKET_TICKERS: dict[str, str] = {
+TRACKED_TICKERS: dict[str, str] = {
     "WTI": "CL=F",
     "BRENT": "BZ=F",
 }
@@ -27,7 +27,7 @@ class PricePoint:
 
 
 def _extract_last_price(ticker_symbol: str) -> float:
-    logger.debug("Extracting latest oil price for ticker=%s", ticker_symbol)
+    logger.debug("Extracting latest market price for ticker=%s", ticker_symbol)
     ticker = yf.Ticker(ticker_symbol)
     fast_info = getattr(ticker, "fast_info", None)
     if fast_info and getattr(fast_info, "get", None):
@@ -46,11 +46,11 @@ def _extract_last_price(ticker_symbol: str) -> float:
 
 
 def fetch_current_prices() -> list[PricePoint]:
-    logger.info("Fetching current prices for %s symbols", len(MARKET_TICKERS))
+    logger.info("Fetching current prices for %s symbols", len(TRACKED_TICKERS))
     now = datetime.now(UTC)
     today = now.date()
     points: list[PricePoint] = []
-    for symbol, ticker in MARKET_TICKERS.items():
+    for symbol, ticker in TRACKED_TICKERS.items():
         price = _extract_last_price(ticker)
         points.append(
             PricePoint(
@@ -67,12 +67,12 @@ def fetch_current_prices() -> list[PricePoint]:
 
 
 def fetch_historical_prices(days: int = 30) -> list[PricePoint]:
-    logger.info("Fetching historical prices for %s symbols days=%s", len(MARKET_TICKERS), days)
+    logger.info("Fetching historical prices for %s symbols days=%s", len(TRACKED_TICKERS), days)
     fetched_at = datetime.now(UTC)
     history_window = "6mo"
     points: list[PricePoint] = []
 
-    for symbol, ticker in MARKET_TICKERS.items():
+    for symbol, ticker in TRACKED_TICKERS.items():
         logger.debug("Fetching historical prices symbol=%s ticker=%s", symbol, ticker)
         history = yf.Ticker(ticker).history(period=history_window, interval="1d", auto_adjust=False)
         if history.empty:
@@ -179,7 +179,7 @@ def ingest_daily_prices(db: Session) -> list[Price]:
 def get_latest_prices(db: Session) -> list[Price]:
     logger.debug("Fetching latest prices")
     results: list[Price] = []
-    for symbol in MARKET_TICKERS:
+    for symbol in TRACKED_TICKERS:
         ticker_row = db.query(Tickers).filter(Tickers.symbol == symbol).one_or_none()
         if ticker_row is None:
             continue

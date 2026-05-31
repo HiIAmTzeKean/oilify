@@ -64,7 +64,7 @@ class Settings:
         # )
         # Database Configuration
         self.DATABASE_URL = _default_db_path()
-        self.OIL_PRICE_SCHEDULE_HOURS = os.getenv("OIL_PRICE_SCHEDULE_HOURS", "0,8,16")
+        self.PRICE_SCHEDULE_HOURS = os.getenv("PRICE_SCHEDULE_HOURS", os.getenv("OIL_PRICE_SCHEDULE_HOURS", "0,8,16"))
         self.SCHEDULER_ENABLED = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"
 
     # def get_database_config(self) -> dict[str, str]:

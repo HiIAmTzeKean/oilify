@@ -33,7 +33,7 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: 9000
       DATABASE_URL: postgresql+psycopg://postgres:password@postgres:5432/oilify_db
-      OIL_PRICE_SCHEDULE_HOURS: "0,8,16"
+      PRICE_SCHEDULE_HOURS: "0,8,16"
     depends_on:
       postgres:
         condition: service_healthy

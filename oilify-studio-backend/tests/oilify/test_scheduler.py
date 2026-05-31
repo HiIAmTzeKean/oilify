@@ -1,4 +1,4 @@
-"""Tests for the Oilify oil price scheduler."""
+"""Tests for the Oilify price scheduler."""
 
 from unittest.mock import MagicMock
 
@@ -58,7 +58,7 @@ def test_start_scheduler_registers_job_and_stop_scheduler_shuts_down(mocker) -> 
     )
     mocker.patch(
         "oilify_studio_backend.services.scheduler.get_settings",
-        return_value=MagicMock(SCHEDULER_ENABLED=True, OIL_PRICE_SCHEDULE_HOURS="1, 5"),
+        return_value=MagicMock(SCHEDULER_ENABLED=True, PRICE_SCHEDULE_HOURS="1, 5"),
     )
 
     start_scheduler()

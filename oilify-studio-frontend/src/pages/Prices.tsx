@@ -1,6 +1,6 @@
 import React from 'react'
 
-import OilPriceHistoryChart from '../components/OilPriceHistoryChart'
+import PriceHistoryChart from '../components/PriceHistoryChart'
 import {
   getLatestPrices,
   getPriceHistory,
@@ -11,7 +11,7 @@ import {
 
 const HISTORY_DAYS = 30
 
-export default function OilPrices() {
+export default function Prices() {
   const [prices, setPrices] = React.useState<Price[]>([])
   const [history, setHistory] = React.useState<PriceHistorySeries[]>([])
   const [loadingPrices, setLoadingPrices] = React.useState(true)
@@ -71,11 +71,11 @@ export default function OilPrices() {
     <section className="space-y-8">
       <div className="flex flex-col gap-4 border-b border-white/10 pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-3">
-          <p className="text-sm uppercase tracking-[0.3em] text-amber-200/80">Oil dashboard</p>
+          <p className="text-sm uppercase tracking-[0.3em] text-amber-200/80">Price dashboard</p>
           <h1 className="text-4xl font-semibold sm:text-5xl">Latest prices and 30-day history</h1>
           <p className="max-w-3xl text-base leading-8 text-slate-300">
-            The page shows the current WTI and Brent prices, plus a line chart of the last 30 days fetched through
-            the Oilify API.
+            The page shows the current tracked prices, plus a line chart of the last 30 days fetched through the
+            backend API.
           </p>
         </div>
 
@@ -99,15 +99,15 @@ export default function OilPrices() {
           <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-4">
             <div>
               <p className="text-sm uppercase tracking-[0.25em] text-slate-400">Latest prices</p>
-              <p className="mt-2 text-lg font-semibold text-white">WTI and Brent crude</p>
+              <p className="mt-2 text-lg font-semibold text-white">Tracked market instruments</p>
             </div>
             <p className="text-xs text-slate-400">Live from the backend</p>
           </div>
 
           {loadingPrices ? (
-            <p className="mt-5 text-sm leading-6 text-slate-300">Loading latest oil prices...</p>
+            <p className="mt-5 text-sm leading-6 text-slate-300">Loading latest prices...</p>
           ) : prices.length === 0 ? (
-            <p className="mt-5 text-sm leading-6 text-slate-300">No oil prices are available yet. Use Sync now to fetch them.</p>
+            <p className="mt-5 text-sm leading-6 text-slate-300">No prices are available yet. Use Sync now to fetch them.</p>
           ) : (
             <div className="mt-5 grid gap-3">
               {prices.map((price) => (
@@ -135,20 +135,20 @@ export default function OilPrices() {
               Loading the 30-day chart...
             </div>
           ) : (
-            <OilPriceHistoryChart series={history} />
+            <PriceHistoryChart series={history} />
           )}
 
           <div className="grid gap-4 sm:grid-cols-3">
             <article className="rounded-3xl border border-white/10 bg-white/5 p-5">
               <h2 className="text-lg font-semibold text-white">WTI</h2>
               <p className="mt-3 text-sm leading-6 text-slate-300">
-                West Texas Intermediate is shown as the U.S. benchmark for the dashboard.
+                West Texas Intermediate is shown as one tracked benchmark in the dashboard.
               </p>
             </article>
             <article className="rounded-3xl border border-white/10 bg-white/5 p-5">
               <h2 className="text-lg font-semibold text-white">Brent</h2>
               <p className="mt-3 text-sm leading-6 text-slate-300">
-                Brent crude provides the international comparison series in the chart.
+                Brent crude provides the comparison series in the chart.
               </p>
             </article>
             <article className="rounded-3xl border border-white/10 bg-white/5 p-5">

@@ -6,13 +6,13 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
 
 from oilify_studio_backend.db import Price, Tickers, get_db
-from oilify_studio_backend.schemas.oil_price import (
+from oilify_studio_backend.schemas.price import (
     PriceHistoryPointResponse,
     PriceHistorySeriesResponse,
     PriceResponse,
     PriceSyncResponse,
 )
-from oilify_studio_backend.services.oil_price import (
+from oilify_studio_backend.services.price import (
     fetch_historical_prices,
     get_latest_prices,
     ingest_daily_prices,

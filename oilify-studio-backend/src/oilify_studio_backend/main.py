@@ -8,7 +8,7 @@ app = create_app()
 
 
 def main() -> None:
-    """Start the Oilify API server."""
+    """Start the API server."""
 
     settings = get_settings()
 

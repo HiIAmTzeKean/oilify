@@ -1,1 +1,1 @@
-"""Pydantic schemas for Oilify API routes."""
+"""Pydantic schemas for API routes."""
