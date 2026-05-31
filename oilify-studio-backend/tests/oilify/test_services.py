@@ -2,8 +2,14 @@
 
 from datetime import UTC, date, datetime, timedelta
 
-from oilify_studio_backend.db.schema import OilPriceDaily
-from oilify_studio_backend.services.oil_price import OilPricePoint, fetch_current_oil_prices, get_latest_daily_prices, upsert_daily_oil_prices
+from oilify_studio_backend.db.schema import Price, Tickers
+from oilify_studio_backend.services.oil_price import (
+    OilPricePoint,
+    fetch_current_oil_prices,
+    fetch_historical_oil_prices,
+    get_latest_daily_prices,
+    upsert_daily_oil_prices,
+)
 
 
 def test_fetch_current_oil_prices_uses_supported_tickers(monkeypatch) -> None:
@@ -23,6 +29,47 @@ def test_fetch_current_oil_prices_uses_supported_tickers(monkeypatch) -> None:
     assert all(point.fetched_at.tzinfo is not None for point in points)
 
 
+def test_fetch_historical_oil_prices_returns_last_30_rows_per_ticker(monkeypatch) -> None:
+    class _FakeHistory:
+        def __init__(self, rows: list[tuple[datetime, float]]) -> None:
+            self._rows = rows
+
+        @property
+        def empty(self) -> bool:
+            return not self._rows
+
+        def tail(self, days: int) -> "_FakeHistory":
+            return _FakeHistory(self._rows[-days:])
+
+        def iterrows(self):
+            for price_date, close_price in self._rows:
+                yield price_date, {"Close": close_price}
+
+    class _FakeTicker:
+        def __init__(self, ticker_symbol: str) -> None:
+            self.ticker_symbol = ticker_symbol
+
+        def history(self, period: str, interval: str, auto_adjust: bool) -> _FakeHistory:
+            assert period == "6mo"
+            assert interval == "1d"
+            assert auto_adjust is False
+            rows = [
+                (datetime(2025, 1, 1) + timedelta(days=day_offset), 100.0 + day_offset)
+                for day_offset in range(35)
+            ]
+            return _FakeHistory(rows)
+
+    monkeypatch.setattr("oilify_studio_backend.services.oil_price.yf.Ticker", _FakeTicker)
+
+    points = fetch_historical_oil_prices()
+
+    assert len(points) == 60
+    assert [point.symbol for point in points[:30]] == ["WTI"] * 30
+    assert [point.symbol for point in points[30:]] == ["BRENT"] * 30
+    assert points[0].price_date == date(2025, 1, 6)
+    assert points[-1].price_date == date(2025, 2, 4)
+
+
 def test_upsert_daily_oil_prices_inserts_and_updates(db_session) -> None:
     today = date.today()
     first_batch = [
@@ -39,8 +86,9 @@ def test_upsert_daily_oil_prices_inserts_and_updates(db_session) -> None:
 
     assert updated_rows[0].price_usd == 110.0
     stored_row = (
-        db_session.query(OilPriceDaily)
-        .filter(OilPriceDaily.symbol == "WTI", OilPriceDaily.price_date == today)
+        db_session.query(Price)
+        .join(Price.ticker)
+        .filter(Tickers.symbol == "WTI", Price.price_date == today)
         .one()
     )
     assert stored_row.price_usd == 110.0
@@ -51,38 +99,39 @@ def test_get_latest_daily_prices_returns_latest_rows(db_session) -> None:
     today = date.today()
     yesterday = today - timedelta(days=1)
 
+    wti_ticker = Tickers(symbol="WTI", ticker="CL=F")
+    brent_ticker = Tickers(symbol="BRENT", ticker="BZ=F")
+    db_session.add_all([wti_ticker, brent_ticker])
+    db_session.flush()
+
     db_session.add_all(
         [
-            OilPriceDaily(
-                symbol="WTI",
-                ticker="CL=F",
+            Price(
+                ticker_id=wti_ticker.id,
                 price_date=yesterday,
                 price_usd=99.0,
                 currency="USD",
                 source="yahoo_finance",
                 fetched_at=datetime.now(UTC),
             ),
-            OilPriceDaily(
-                symbol="WTI",
-                ticker="CL=F",
+            Price(
+                ticker_id=wti_ticker.id,
                 price_date=today,
                 price_usd=100.0,
                 currency="USD",
                 source="yahoo_finance",
                 fetched_at=datetime.now(UTC),
             ),
-            OilPriceDaily(
-                symbol="BRENT",
-                ticker="BZ=F",
+            Price(
+                ticker_id=brent_ticker.id,
                 price_date=yesterday,
                 price_usd=101.0,
                 currency="USD",
                 source="yahoo_finance",
                 fetched_at=datetime.now(UTC),
             ),
-            OilPriceDaily(
-                symbol="BRENT",
-                ticker="BZ=F",
+            Price(
+                ticker_id=brent_ticker.id,
                 price_date=today,
                 price_usd=102.0,
                 currency="USD",

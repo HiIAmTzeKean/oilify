@@ -2,9 +2,9 @@ import logging
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from oilify_studio_backend.db import OilPriceDaily, get_db
+from oilify_studio_backend.db import Price, get_db
 from oilify_studio_backend.schemas import OilPriceResponse, OilPriceSyncResponse
 from oilify_studio_backend.services.oil_price import (
     get_latest_daily_prices,
@@ -15,10 +15,10 @@ from oilify_studio_backend.services.oil_price import (
 logger = logging.getLogger(__name__)
 
 
-def _to_response(row: OilPriceDaily) -> OilPriceResponse:
+def _to_response(row: Price) -> OilPriceResponse:
     return OilPriceResponse(
-        symbol=row.symbol,
-        ticker=row.ticker,
+        symbol=row.ticker.symbol,
+        ticker=row.ticker.ticker,
         price_date=row.price_date,
         price_usd=row.price_usd,
         currency=row.currency,
@@ -37,7 +37,10 @@ def create_oil_price_router() -> APIRouter:
             rows = ingest_daily_oil_prices(db)
             prices = [_to_response(row) for row in rows]
             logger.info("Oil price refresh completed updated_rows=%s", len(prices))
-            logger.debug("Oil price refresh returned symbols=%s", [price.symbol for price in prices])
+            logger.debug(
+                "Oil price refresh returned symbols=%s",
+                [price.symbol for price in prices],
+            )
             return OilPriceSyncResponse(updated_rows=len(prices), prices=prices)
         except Exception:
             logger.exception("Oil price refresh failed")
@@ -49,7 +52,10 @@ def create_oil_price_router() -> APIRouter:
         try:
             rows = get_latest_daily_prices(db)
             prices = [_to_response(row) for row in rows]
-            logger.debug("Latest oil price lookup returned symbols=%s", [price.symbol for price in prices])
+            logger.debug(
+                "Latest oil price lookup returned symbols=%s",
+                [price.symbol for price in prices],
+            )
             return prices
         except Exception:
             logger.exception("Latest oil price lookup failed")
@@ -62,7 +68,12 @@ def create_oil_price_router() -> APIRouter:
     ) -> list[OilPriceResponse]:
         logger.info("Daily oil price lookup requested for date=%s", target_date)
         try:
-            rows = db.query(OilPriceDaily).filter(OilPriceDaily.price_date == target_date).all()
+            rows = (
+                db.query(Price)
+                .options(joinedload(Price.ticker))
+                .filter(Price.price_date == target_date)
+                .all()
+            )
             prices = [_to_response(row) for row in rows]
             logger.debug("Daily oil price lookup returned count=%s", len(prices))
             return prices
