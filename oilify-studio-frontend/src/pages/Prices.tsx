@@ -13,8 +13,8 @@ import { getTickerColor } from '../lib/tickerColor'
 
 const HISTORY_DAYS = 30
 
-const getPointDate = (value: { price_date?: string | null; timestamp?: string | null }): string => {
-  return value.price_date ?? value.timestamp ?? 'Unknown date'
+const getPointDate = (value: { timestamp?: string }): string => {
+  return value.timestamp ?? 'Unknown date'
 }
 
 export default function Prices() {

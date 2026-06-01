@@ -1,6 +1,7 @@
 import React from 'react'
 
 import type { PriceHistorySeries } from '../lib/api'
+import { formatChartDate, getPointDate, getSortedPointDates, sortPointsByDate } from '../lib/chartData'
 import { getTickerColor } from '../lib/tickerColor'
 
 type VolatilityChartProps = {
@@ -16,45 +17,12 @@ const MARGIN = {
   left: 64,
 }
 
-const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/
-
-const parsePriceDate = (value: string): Date | null => {
-  if (!value) {
-    return null
-  }
-
-  const trimmed = value.trim()
-  const candidate = DATE_ONLY_REGEX.test(trimmed) ? `${trimmed}T00:00:00Z` : trimmed
-  const dateValue = new Date(candidate)
-  return Number.isNaN(dateValue.getTime()) ? null : dateValue
-}
-
-const formatDate = (value: string): string => {
-  const dateValue = parsePriceDate(value)
-  if (!dateValue) {
-    return 'Invalid date'
-  }
-
-  return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(dateValue)
-}
-
-const buildPath = (data: Array<{ x: number; y: number }>): string => {
-  return data.reduce((path, point, index) => `${path}${index === 0 ? 'M' : 'L'} ${point.x} ${point.y} `, '').trim()
-}
-
-const getPointDate = (point: { price_date?: string | null; timestamp?: string | null }): string | null => {
-  const rawDate = point.price_date ?? point.timestamp ?? null
-  if (typeof rawDate !== 'string') {
-    return null
-  }
-
-  const trimmed = rawDate.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
+const buildPath = (data: Array<{ x: number; y: number }>): string =>
+  data.reduce((path, point, index) => `${path}${index === 0 ? 'M' : 'L'} ${point.x} ${point.y} `, '').trim()
 
 export default function VolatilityChart({ series }: VolatilityChartProps) {
   const volatilityPoints = series.flatMap((item) => item.historical_volatility.flatMap((s) => s.points))
-  const allDates = Array.from(new Set(volatilityPoints.map((point) => getPointDate(point)).filter(Boolean))).sort() as string[]
+  const allDates = getSortedPointDates(volatilityPoints)
 
   if (allDates.length === 0 || volatilityPoints.length === 0) {
     return (
@@ -144,7 +112,7 @@ export default function VolatilityChart({ series }: VolatilityChartProps) {
             <g key={dateValue}>
               <line x1={x} y1={chartBottom} x2={x} y2={chartBottom + 8} stroke="rgba(148,163,184,0.2)" />
               <text x={x} y={chartBottom + 28} textAnchor="middle" className="fill-slate-400" fontSize="12">
-                {formatDate(dateValue)}
+                {formatChartDate(dateValue)}
               </text>
             </g>
           )
@@ -152,10 +120,7 @@ export default function VolatilityChart({ series }: VolatilityChartProps) {
 
         {series.map((item) => {
           const flatVolatility = item.historical_volatility.flatMap((s) => s.points)
-          const orderedPoints = flatVolatility
-            .filter((point) => getPointDate(point) !== null)
-            .slice()
-            .sort((left, right) => (getPointDate(left) ?? '').localeCompare(getPointDate(right) ?? ''))
+          const orderedPoints = sortPointsByDate(flatVolatility)
 
           if (orderedPoints.length === 0) {
             return null

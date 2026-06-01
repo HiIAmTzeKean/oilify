@@ -229,6 +229,6 @@ __marimo__/
 logging_config.yaml
 .DS_Store
 
-recnexteval-studio-backend/recnexteval
-recnexteval-studio-backend/data/**
-!recnexteval-studio-frontend/src/**
+oilify-studio-backend/oilify
+oilify-studio-backend/data/**
+!oilify-studio-frontend/src/**
