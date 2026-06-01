@@ -1,57 +1,6 @@
+import type { Price, PriceHistorySeries } from '../types'
+
 const API_BASE = 'http://localhost:9000'
-
-export type Price = {
-  symbol: string
-  ticker: string
-  short_name?: string | null
-  long_name?: string | null
-  timestamp?: string
-  price: number
-  previous_price?: number | null
-  price_change?: number | null
-  price_change_pct?: number | null
-  currency: string
-  source: string
-  fetched_at: string
-}
-
-export type PriceHistoryPoint = {
-  timestamp?: string
-  price: number
-}
-
-export type TechnicalIndicatorPoint = {
-  timestamp?: string
-  indicator_value: number
-}
-
-export type TechnicalIndicatorSeries = {
-  indicator_name: string
-  indicator_label: string
-  points: TechnicalIndicatorPoint[]
-}
-
-export type HistoricalVolatilityPoint = {
-  timestamp?: string
-  annualized_volatility: number
-}
-
-export type HistoricalVolatilitySeries = {
-  window_size: number
-  annualization_factor: number
-  points: HistoricalVolatilityPoint[]
-}
-
-export type PriceHistorySeries = {
-  symbol: string
-  ticker: string
-  short_name?: string | null
-  long_name?: string | null
-  currency?: string | null
-  points: PriceHistoryPoint[]
-  technical_indicators: TechnicalIndicatorSeries[]
-  historical_volatility: HistoricalVolatilitySeries[]
-}
 
 export const apiFetch = (endpoint: string, options: RequestInit = {}): Promise<Response> => {
   const url = `${API_BASE}${endpoint}`

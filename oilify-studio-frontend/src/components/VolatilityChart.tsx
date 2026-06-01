@@ -1,6 +1,6 @@
 import React from 'react'
 
-import type { PriceHistorySeries } from '../lib/api'
+import type { PriceHistorySeries } from '../types'
 import { formatChartDate, getPointDate, getSortedPointDates, sortPointsByDate } from '../lib/chartData'
 import { getTickerColor } from '../lib/tickerColor'
 

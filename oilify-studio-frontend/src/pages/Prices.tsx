@@ -6,9 +6,8 @@ import {
   getLatestPrices,
   getPriceHistory,
   refreshPrices,
-  type Price,
-  type PriceHistorySeries,
 } from '../lib/api'
+import type { Price, PriceHistorySeries } from '../types'
 import { getTickerColor } from '../lib/tickerColor'
 
 const HISTORY_DAYS = 30
