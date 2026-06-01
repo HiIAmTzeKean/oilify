@@ -6,7 +6,7 @@ from sqlalchemy import select
 from oilify_studio_backend.db.connection import get_database_manager
 from oilify_studio_backend.db.schema import Price, Tickers
 from oilify_studio_backend.services.analytics import rebuild_market_analytics
-from oilify_studio_backend.services.price import fetch_historical_prices, upsert_daily_prices
+from oilify_studio_backend.services.price import fetch_historical_prices, upsert_prices
 
 
 logger = logging.getLogger(__name__)
@@ -84,6 +84,6 @@ def _seed_historical_prices(session) -> None:
     else:
         logger.info("Seeding initial historical prices")
         points = fetch_historical_prices(session, days=30)
-        upsert_daily_prices(session, points)
+        upsert_prices(session, points)
 
     rebuild_market_analytics(session)

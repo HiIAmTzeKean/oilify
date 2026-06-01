@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -8,7 +8,7 @@ class PriceResponse(BaseModel):
     ticker: str
     short_name: str | None = None
     long_name: str | None = None
-    price_date: date
+    price_at: datetime
     price: float
     previous_price: float | None = None
     price_change: float | None = None
@@ -24,12 +24,12 @@ class PriceSyncResponse(BaseModel):
 
 
 class PriceHistoryPointResponse(BaseModel):
-    price_date: date
+    price_at: datetime
     price: float
 
 
 class PriceIndicatorPointResponse(BaseModel):
-    price_date: date
+    price_at: datetime
     indicator_value: float
 
 
@@ -41,7 +41,7 @@ class PriceIndicatorSeriesResponse(BaseModel):
 
 
 class HistoricalVolatilityPointResponse(BaseModel):
-    price_date: date
+    price_at: datetime
     annualized_volatility: float
 
 

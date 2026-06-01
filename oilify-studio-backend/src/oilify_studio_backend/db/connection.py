@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Generator
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from oilify_studio_backend.config import get_settings
@@ -34,6 +34,26 @@ class DatabaseManager:
     def create_tables(self) -> None:
         logger.info("Creating Oilify database tables")
         Base.metadata.create_all(bind=self.engine)
+        self._sync_legacy_price_columns()
+
+    def _sync_legacy_price_columns(self) -> None:
+        inspector = inspect(self.engine)
+        if "prices" not in inspector.get_table_names():
+            return
+
+        price_columns = {column["name"] for column in inspector.get_columns("prices")}
+        if "price_usd" in price_columns and "price" not in price_columns:
+            with self.engine.begin() as connection:
+                connection.execute(text("ALTER TABLE prices RENAME COLUMN price_usd TO price"))
+            price_columns.remove("price_usd")
+            price_columns.add("price")
+
+        if "date" in price_columns and "price_at" not in price_columns:
+            with self.engine.begin() as connection:
+                connection.execute(text("ALTER TABLE prices RENAME COLUMN date TO price_at"))
+        elif "price_date" in price_columns and "price_at" not in price_columns:
+            with self.engine.begin() as connection:
+                connection.execute(text("ALTER TABLE prices RENAME COLUMN price_date TO price_at"))
 
     def get_session(self) -> Session:
         logger.debug("Opening Oilify database session")

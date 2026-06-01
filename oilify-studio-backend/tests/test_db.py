@@ -51,3 +51,47 @@ def test_get_db_session_closes_the_session() -> None:
         pass
 
     assert close_called is True
+
+
+def test_create_tables_renames_legacy_prices_columns() -> None:
+    from sqlalchemy import text
+    from sqlalchemy.orm import sessionmaker
+
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    legacy_manager = object.__new__(DatabaseManager)
+    legacy_manager.engine = engine
+    legacy_manager.SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE prices (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ticker_id INTEGER NOT NULL,
+                    date DATETIME NOT NULL,
+                    price_usd FLOAT NOT NULL,
+                    currency VARCHAR(8) NOT NULL,
+                    source VARCHAR(64) NOT NULL,
+                    fetched_at DATETIME NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+
+    legacy_manager.create_tables()
+
+    from sqlalchemy import inspect
+
+    columns = {column["name"] for column in inspect(engine).get_columns("prices")}
+
+    assert "price_at" in columns
+    assert "price" in columns
+    assert "date" not in columns
+    assert "price_usd" not in columns

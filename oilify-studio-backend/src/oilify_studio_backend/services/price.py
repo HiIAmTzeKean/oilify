@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import cast
 
 import yfinance as yf
@@ -13,13 +13,19 @@ from oilify_studio_backend.services.analytics import rebuild_market_analytics
 logger = logging.getLogger(__name__)
 
 
+def _round_to_30min(dt: datetime) -> datetime:
+    """Round ``dt`` down to the nearest half-hour mark (``xx:00`` or ``xx:30``)."""
+    minute = (dt.minute // 30) * 30
+    return dt.replace(minute=minute, second=0, microsecond=0)
+
+
 @dataclass(frozen=True)
 class PricePoint:
     symbol: str
     ticker: str
     price: float
     currency: str
-    price_date: date
+    price_at: datetime
     fetched_at: datetime
 
 
@@ -91,7 +97,7 @@ def fetch_current_prices(db: Session) -> list[PricePoint]:
     ticker_rows = _get_ticker_rows(db)
     logger.info("Fetching current prices for %s symbols", len(ticker_rows))
     now = datetime.now(UTC)
-    today = now.date()
+    price_at = _round_to_30min(now)
     points: list[PricePoint] = []
     for ticker_row in ticker_rows:
         symbol = ticker_row.symbol
@@ -104,16 +110,17 @@ def fetch_current_prices(db: Session) -> list[PricePoint]:
                 ticker=ticker,
                 price=price,
                 currency=currency,
-                price_date=today,
+                price_at=price_at,
                 fetched_at=now,
             )
         )
         logger.debug(
-            "Fetched price symbol=%s ticker=%s price=%s currency=%s",
+            "Fetched price symbol=%s ticker=%s price=%s currency=%s price_at=%s",
             symbol,
             ticker,
             price,
             currency,
+            price_at,
         )
     logger.info("Fetched %s current prices", len(points))
     return points
@@ -161,7 +168,7 @@ def fetch_historical_prices(db: Session, days: int = 30) -> list[PricePoint]:
                     ticker=ticker,
                     price=float(close_price),
                     currency=currency,
-                    price_date=price_timestamp.date(),
+                    price_at=price_timestamp,
                     fetched_at=fetched_at,
                 )
             )
@@ -185,22 +192,22 @@ def _get_or_create_ticker(db: Session, symbol: str, ticker: str) -> Tickers:
     return existing_ticker
 
 
-def upsert_daily_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
-    logger.info("Upserting %s daily price rows", len(prices))
+def upsert_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
+    logger.info("Upserting %s price rows", len(prices))
     saved_rows: list[Price] = []
     for point in prices:
         logger.debug(
-            "Upserting price symbol=%s ticker=%s price_date=%s price=%s currency=%s",
+            "Upserting price symbol=%s ticker=%s price_at=%s price=%s currency=%s",
             point.symbol,
             point.ticker,
-            point.price_date,
+            point.price_at,
             point.price,
             point.currency,
         )
         ticker_row = _get_or_create_ticker(db, point.symbol, point.ticker)
         existing = (
             db.query(Price)
-            .filter(Price.ticker_id == ticker_row.id, Price.date == point.price_date)
+            .filter(Price.ticker_id == ticker_row.id, Price.price_at == point.price_at)
             .first()
         )
         if existing:
@@ -212,7 +219,7 @@ def upsert_daily_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
         else:
             row = Price(
                 ticker_id=ticker_row.id,
-                date=point.price_date,
+                price_at=point.price_at,
                 price=point.price,
                 currency=point.currency,
                 source="yahoo_finance",
@@ -229,10 +236,10 @@ def upsert_daily_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
     return saved_rows
 
 
-def ingest_daily_prices(db: Session) -> list[Price]:
+def ingest_prices(db: Session) -> list[Price]:
     logger.info("Starting price ingestion")
     prices = fetch_current_prices(db)
-    rows = upsert_daily_prices(db, prices)
+    rows = upsert_prices(db, prices)
     rebuild_market_analytics(db)
     logger.info("Completed price ingestion rows=%s", len(rows))
     return rows
@@ -245,7 +252,7 @@ def get_latest_prices(db: Session) -> list[LatestPricePoint]:
         rows = (
             db.query(Price)
             .filter(Price.ticker_id == ticker_row.id)
-            .order_by(Price.date.desc(), Price.id.desc())
+            .order_by(Price.price_at.desc(), Price.id.desc())
             .limit(2)
             .all()
         )

@@ -7,10 +7,11 @@ from oilify_studio_backend.services.analytics import rebuild_market_analytics
 from oilify_studio_backend.services.price import (
     LatestPricePoint,
     PricePoint,
+    _round_to_30min,
     fetch_current_prices,
     fetch_historical_prices,
     get_latest_prices,
-    upsert_daily_prices,
+    upsert_prices,
 )
 
 
@@ -24,6 +25,21 @@ def _seed_tickers(db_session) -> None:
     db_session.commit()
 
 
+def test_round_to_30min() -> None:
+    assert _round_to_30min(datetime(2026, 6, 1, 10, 29, 0, 0, tzinfo=UTC)) == datetime(
+        2026, 6, 1, 10, 0, 0, 0, tzinfo=UTC
+    )
+    assert _round_to_30min(datetime(2026, 6, 1, 10, 30, 0, 0, tzinfo=UTC)) == datetime(
+        2026, 6, 1, 10, 30, 0, 0, tzinfo=UTC
+    )
+    assert _round_to_30min(datetime(2026, 6, 1, 10, 45, 0, 0, tzinfo=UTC)) == datetime(
+        2026, 6, 1, 10, 30, 0, 0, tzinfo=UTC
+    )
+    assert _round_to_30min(datetime(2026, 6, 1, 11, 1, 0, 0, tzinfo=UTC)) == datetime(
+        2026, 6, 1, 11, 0, 0, 0, tzinfo=UTC
+    )
+
+
 def test_fetch_current_prices_uses_supported_tickers(db_session, monkeypatch) -> None:
     _seed_tickers(db_session)
     prices = {"CL=F": 101.25, "BZ=F": 104.5}
@@ -35,11 +51,14 @@ def test_fetch_current_prices_uses_supported_tickers(db_session, monkeypatch) ->
 
     points = fetch_current_prices(db_session)
 
+    now = datetime.now(UTC)
+    expected_price_at = _round_to_30min(now)
+
     assert [point.symbol for point in points] == ["WTI", "BRENT"]
     assert [point.ticker for point in points] == ["CL=F", "BZ=F"]
     assert [point.price for point in points] == [101.25, 104.5]
     assert [point.currency for point in points] == ["USD", "USD"]
-    assert all(point.price_date == date.today() for point in points)
+    assert all(point.price_at == expected_price_at for point in points)
     assert all(point.fetched_at.tzinfo is not None for point in points)
 
 
@@ -86,29 +105,30 @@ def test_fetch_historical_prices_returns_last_30_rows_per_ticker(db_session, mon
     assert len(points) == 60
     assert [point.symbol for point in points[:30]] == ["WTI"] * 30
     assert [point.symbol for point in points[30:]] == ["BRENT"] * 30
-    assert points[0].price_date == date(2025, 1, 6)
-    assert points[-1].price_date == date(2025, 2, 4)
+    assert points[0].price_at == datetime(2025, 1, 6)
+    assert points[-1].price_at == datetime(2025, 2, 4)
 
 
-def test_upsert_daily_prices_inserts_and_updates(db_session) -> None:
-    today = date.today()
+def test_upsert_prices_inserts_and_updates(db_session) -> None:
+    now = datetime.now(UTC)
+    price_at = _round_to_30min(now)
     first_batch = [
-        PricePoint("WTI", "CL=F", 100.0, "USD", today, datetime.now(UTC)),
-        PricePoint("BRENT", "BZ=F", 102.0, "USD", today, datetime.now(UTC)),
+        PricePoint("WTI", "CL=F", 100.0, "USD", price_at, now),
+        PricePoint("BRENT", "BZ=F", 102.0, "USD", price_at, now),
     ]
 
-    inserted_rows = upsert_daily_prices(db_session, first_batch)
+    inserted_rows = upsert_prices(db_session, first_batch)
 
     assert len(inserted_rows) == 2
 
-    second_batch = [PricePoint("WTI", "CL=F", 110.0, "USD", today, datetime.now(UTC))]
-    updated_rows = upsert_daily_prices(db_session, second_batch)
+    second_batch = [PricePoint("WTI", "CL=F", 110.0, "USD", price_at, now)]
+    updated_rows = upsert_prices(db_session, second_batch)
 
     assert updated_rows[0].price == 110.0
     stored_row = (
         db_session.query(Price)
         .join(Price.ticker)
-        .filter(Tickers.symbol == "WTI", Price.date == today)
+        .filter(Tickers.symbol == "WTI", Price.price_at == price_at)
         .one()
     )
     assert stored_row.price == 110.0
@@ -116,8 +136,11 @@ def test_upsert_daily_prices_inserts_and_updates(db_session) -> None:
 
 
 def test_get_latest_prices_returns_latest_rows(db_session) -> None:
-    today = date.today()
+    now = datetime.now(UTC)
+    today = now.date()
     yesterday = today - timedelta(days=1)
+    yesterday_mid = datetime.combine(yesterday, datetime.min.time(), tzinfo=UTC)
+    today_start = datetime.combine(today, datetime.min.time(), tzinfo=UTC)
 
     wti_ticker = Tickers(symbol="WTI", ticker="CL=F")
     brent_ticker = Tickers(symbol="BRENT", ticker="BZ=F")
@@ -128,35 +151,35 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
         [
             Price(
                 ticker_id=wti_ticker.id,
-                date=yesterday,
+                price_at=yesterday_mid,
                 price=99.0,
                 currency="USD",
                 source="yahoo_finance",
-                fetched_at=datetime.now(UTC),
+                fetched_at=now,
             ),
             Price(
                 ticker_id=wti_ticker.id,
-                date=today,
+                price_at=today_start,
                 price=100.0,
                 currency="USD",
                 source="yahoo_finance",
-                fetched_at=datetime.now(UTC),
+                fetched_at=now,
             ),
             Price(
                 ticker_id=brent_ticker.id,
-                date=yesterday,
+                price_at=yesterday_mid,
                 price=101.0,
                 currency="USD",
                 source="yahoo_finance",
-                fetched_at=datetime.now(UTC),
+                fetched_at=now,
             ),
             Price(
                 ticker_id=brent_ticker.id,
-                date=today,
+                price_at=today_start,
                 price=102.0,
                 currency="USD",
                 source="yahoo_finance",
-                fetched_at=datetime.now(UTC),
+                fetched_at=now,
             ),
         ]
     )
@@ -166,12 +189,12 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
 
     assert isinstance(latest_rows[0], LatestPricePoint)
     assert [row.current.ticker.symbol for row in latest_rows] == ["WTI", "BRENT"]
-    assert [row.current.date for row in latest_rows] == [today, today]
+    assert [row.current.price_at.replace(tzinfo=UTC) for row in latest_rows] == [today_start, today_start]
     previous_dates = []
     for row in latest_rows:
         assert row.previous is not None
-        previous_dates.append(row.previous.date)
-    assert previous_dates == [yesterday, yesterday]
+        previous_dates.append(row.previous.price_at.replace(tzinfo=UTC))
+    assert previous_dates == [yesterday_mid, yesterday_mid]
 
 
 def test_rebuild_market_analytics_persists_indicator_rows(db_session) -> None:
@@ -184,10 +207,11 @@ def test_rebuild_market_analytics_persists_indicator_rows(db_session) -> None:
     rows = []
     for day_offset in range(30):
         price_date = today - timedelta(days=29 - day_offset)
+        price_at = datetime.combine(price_date, datetime.min.time(), tzinfo=UTC)
         rows.append(
             Price(
                 ticker_id=ticker_ids["CL=F"],
-                date=price_date,
+                price_at=price_at,
                 price=100.0 + day_offset,
                 currency="USD",
                 source="yahoo_finance",
@@ -197,7 +221,7 @@ def test_rebuild_market_analytics_persists_indicator_rows(db_session) -> None:
         rows.append(
             Price(
                 ticker_id=ticker_ids["BZ=F"],
-                date=price_date,
+                price_at=price_at,
                 price=110.0 + day_offset,
                 currency="USD",
                 source="yahoo_finance",

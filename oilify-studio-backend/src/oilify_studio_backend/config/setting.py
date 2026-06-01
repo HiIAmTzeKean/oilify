@@ -59,18 +59,9 @@ class Settings:
         self.LOGS_DIR.mkdir(exist_ok=True)
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
-        # self.DATABASE_URL = os.getenv(
-        #     "DATABASE_URL", "postgresql+psycopg://postgres:password@localhost:5432/oilify_db"
-        # )
         # Database Configuration
         self.DATABASE_URL = _default_db_path()
-        self.PRICE_SCHEDULE_HOURS = os.getenv("PRICE_SCHEDULE_HOURS", os.getenv("OIL_PRICE_SCHEDULE_HOURS", "0,8,16"))
         self.SCHEDULER_ENABLED = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"
-
-    # def get_database_config(self) -> dict[str, str]:
-    #     return {
-    #         "url": self.DATABASE_URL,
-    #     }
     
     def get_database_config(self) -> dict:
         """Get database configuration."""

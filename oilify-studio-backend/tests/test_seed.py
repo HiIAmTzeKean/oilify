@@ -1,6 +1,6 @@
 """Tests for the Oilify bootstrap seed."""
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from oilify_studio_backend.db.schema import HistoricalVolatility, Price, TechnicalIndicator, Tickers
 from oilify_studio_backend.db.seed import seed_initial_tickers
@@ -18,13 +18,18 @@ def _build_price_points() -> list[PricePoint]:
         ("RB=F", 120.0),
     ]:
         for day_offset in range(30):
+            price_at = datetime.combine(
+                datetime.now(UTC).date() - timedelta(days=29 - day_offset),
+                datetime.min.time(),
+                tzinfo=UTC,
+            )
             points.append(
                 PricePoint(
                     symbol=ticker,
                     ticker=ticker,
                     price=base_price + day_offset,
                     currency="USD",
-                    price_date=date.today() - timedelta(days=29 - day_offset),
+                    price_at=price_at,
                     fetched_at=fetched_at,
                 )
             )

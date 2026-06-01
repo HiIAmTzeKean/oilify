@@ -1,6 +1,7 @@
 """Shared fixtures for Oilify tests."""
 
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -14,7 +15,7 @@ from oilify_studio_backend.db.connection import create_tables, get_database_mana
 
 
 @pytest.fixture(autouse=True)
-def configure_oilify_test_environment(tmp_path, monkeypatch) -> Generator[None, None, None]:
+def configure_oilify_test_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
     db_path = tmp_path / "oilify_test.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path}")
     monkeypatch.setenv("SCHEDULER_ENABLED", "false")

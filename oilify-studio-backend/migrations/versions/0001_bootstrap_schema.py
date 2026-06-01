@@ -49,14 +49,14 @@ def _create_prices_table() -> None:
         "prices",
         sa.Column("id", sa.Integer(), sa.Sequence("prices_id_seq"), primary_key=True, autoincrement=True),
         sa.Column("ticker_id", sa.Integer(), sa.ForeignKey("tickers.id"), nullable=False),
-        sa.Column("date", sa.Date(), nullable=False),
+        sa.Column("price_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("price", sa.Float(), nullable=False),
         sa.Column("currency", sa.String(length=8), nullable=False),
         sa.Column("source", sa.String(length=64), nullable=False),
         sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.UniqueConstraint("ticker_id", "date", name="uq_price_ticker_date"),
+        sa.UniqueConstraint("ticker_id", "price_at", name="uq_price_ticker_price_at"),
     )
 
 
@@ -113,9 +113,12 @@ def upgrade() -> None:
         if "price_usd" in price_columns and "price" not in price_columns:
             with op.batch_alter_table("prices") as batch_op:
                 batch_op.alter_column("price_usd", new_column_name="price")
+        if "date" in price_columns and "price_at" not in price_columns:
+            with op.batch_alter_table("prices") as batch_op:
+                batch_op.alter_column("date", new_column_name="price_at")
         if "price_date" in price_columns and "date" not in price_columns:
             with op.batch_alter_table("prices") as batch_op:
-                batch_op.alter_column("price_date", new_column_name="date")
+                batch_op.alter_column("price_date", new_column_name="price_at")
 
     if "technical_indicators" not in table_names:
         _create_technical_indicators_table()
@@ -167,9 +170,9 @@ def downgrade() -> None:
         if "price" in price_columns and "price_usd" not in price_columns:
             with op.batch_alter_table("prices") as batch_op:
                 batch_op.alter_column("price", new_column_name="price_usd")
-        if "date" in price_columns and "price_date" not in price_columns:
+        if "price_at" in price_columns and "date" not in price_columns:
             with op.batch_alter_table("prices") as batch_op:
-                batch_op.alter_column("date", new_column_name="price_date")
+                batch_op.alter_column("price_at", new_column_name="date")
 
         op.drop_table("prices")
 

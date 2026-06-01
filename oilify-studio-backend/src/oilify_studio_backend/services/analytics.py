@@ -34,17 +34,23 @@ class RecalculatedAnalytics:
 
 
 def _group_price_rows(db: Session) -> dict[int, list[PriceSeriesPoint]]:
-    grouped_rows: dict[int, list[PriceSeriesPoint]] = defaultdict(list)
-    rows = (
+    """Group prices by ticker, aggregated to daily (last price of each day)."""
+    raw_rows = (
         db.query(Price)
-        .order_by(Price.ticker_id, Price.date, Price.id)
+        .order_by(Price.ticker_id, Price.price_at, Price.id)
         .all()
     )
-    for row in rows:
-        grouped_rows[row.ticker_id].append(
-            PriceSeriesPoint(price_date=row.date, price=row.price)
-        )
-    return grouped_rows
+    daily: dict[int, dict[date, float]] = defaultdict(dict)
+    for row in raw_rows:
+        daily[row.ticker_id][row.price_at.date()] = row.price
+
+    result: dict[int, list[PriceSeriesPoint]] = {}
+    for ticker_id, day_map in daily.items():
+        result[ticker_id] = [
+            PriceSeriesPoint(price_date=d, price=p)
+            for d, p in sorted(day_map.items())
+        ]
+    return result
 
 
 def _build_sma_points(points: list[PriceSeriesPoint], window: int) -> list[tuple[date, float]]:

@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 from oilify_studio_backend.services import scheduler as scheduler_module
-from oilify_studio_backend.services.scheduler import _parse_hours, run_price_job, start_scheduler, stop_scheduler
+from oilify_studio_backend.services.scheduler import run_price_job, start_scheduler, stop_scheduler
 
 
 class _FakeScheduler:
@@ -32,11 +32,6 @@ class _FakeScheduler:
         self.running = False
 
 
-def test_parse_hours_normalizes_input() -> None:
-    assert _parse_hours(" 1, 5 ,9 ") == "1,5,9"
-    assert _parse_hours("   ") == "0,8,16"
-
-
 def test_start_scheduler_is_disabled_when_configured_off(mocker) -> None:
     scheduler_module._scheduler = None
     mocker.patch(
@@ -58,7 +53,7 @@ def test_start_scheduler_registers_job_and_stop_scheduler_shuts_down(mocker) -> 
     )
     mocker.patch(
         "oilify_studio_backend.services.scheduler.get_settings",
-        return_value=MagicMock(SCHEDULER_ENABLED=True, PRICE_SCHEDULE_HOURS="1, 5"),
+        return_value=MagicMock(SCHEDULER_ENABLED=True),
     )
 
     start_scheduler()
@@ -66,6 +61,9 @@ def test_start_scheduler_registers_job_and_stop_scheduler_shuts_down(mocker) -> 
     assert scheduler_module._scheduler is fake_scheduler
     assert fake_scheduler.started is True
     assert len(fake_scheduler.jobs) == 1
+    from apscheduler.triggers.interval import IntervalTrigger
+    assert isinstance(fake_scheduler.jobs[0]["trigger"], IntervalTrigger)
+    assert fake_scheduler.jobs[0]["trigger"].interval.seconds == 1800  # 30 min
 
     stop_scheduler()
 
@@ -82,7 +80,7 @@ def test_run_price_job_closes_session(mocker) -> None:
         return_value=manager,
     )
     mocker.patch(
-        "oilify_studio_backend.services.scheduler.ingest_daily_prices",
+        "oilify_studio_backend.services.scheduler.ingest_prices",
         return_value=[MagicMock(), MagicMock()],
     )
 

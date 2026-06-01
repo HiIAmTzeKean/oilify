@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
@@ -25,7 +25,7 @@ from oilify_studio_backend.db import (
 from oilify_studio_backend.services.price import (
     fetch_historical_prices,
     get_latest_prices,
-    ingest_daily_prices,
+    ingest_prices,
 )
 
 
@@ -52,7 +52,7 @@ def _to_response(row: Price, db: Session, previous_price: float | None = None) -
         ticker=ticker.ticker if ticker is not None else "",
         short_name=ticker.short_name if ticker is not None else None,
         long_name=ticker.long_name if ticker is not None else None,
-        price_date=row.date,
+        price_at=row.price_at,
         price=row.price,
         previous_price=previous_price,
         price_change=price_change,
@@ -70,13 +70,14 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
     cutoff_date: date | None = None
 
     for point in points:
-        if cutoff_date is None or point.price_date < cutoff_date:
-            cutoff_date = point.price_date
+        point_date = point.price_at.date()
+        if cutoff_date is None or point_date < cutoff_date:
+            cutoff_date = point_date
         series_key = (point.symbol, point.ticker)
         series_currency.setdefault(series_key, point.currency)
         grouped_points[series_key].append(
             PriceHistoryPointResponse(
-                price_date=point.price_date,
+                price_at=point.price_at,
                 price=point.price,
             )
         )
@@ -106,7 +107,7 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
             key = (indicator_row.name, indicator_row.window_size)
             indicator_series[series_key][key].append(
                 PriceIndicatorPointResponse(
-                    price_date=indicator_row.date,
+                    price_at=datetime.combine(indicator_row.date, datetime.min.time()),
                     indicator_value=indicator_row.value,
                 )
             )
@@ -131,7 +132,7 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
 
             entry["points"].append(
                 HistoricalVolatilityPointResponse(
-                    price_date=volatility_row.date,
+                    price_at=datetime.combine(volatility_row.date, datetime.min.time()),
                     annualized_volatility=volatility_row.value,
                 )
             )
@@ -157,7 +158,7 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
                 HistoricalVolatilitySeriesResponse(
                     window_size=ws,
                     annualization_factor=entry["annualization_factor"],
-                    points=sorted(entry["points"], key=lambda p: p.price_date),
+                    points=sorted(entry["points"], key=lambda p: p.price_at),
                 )
             )
 
@@ -168,7 +169,7 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
                 short_name=ticker_row.short_name,
                 long_name=ticker_row.long_name,
                 currency=series_currency.get(series_key),
-                points=sorted(point_list, key=lambda point: point.price_date),
+                points=sorted(point_list, key=lambda point: point.price_at),
                 technical_indicators=indicator_list,
                 historical_volatility=hv_series_list,
             )
@@ -184,7 +185,7 @@ def create_price_router() -> APIRouter:
     def refresh_prices(db: Session = Depends(get_db)) -> PriceSyncResponse:
         logger.info("Price refresh requested")
         try:
-            rows = ingest_daily_prices(db)
+            rows = ingest_prices(db)
             latest_rows = get_latest_prices(db)
             latest_rows_by_ticker_id = {row.current.ticker_id: row for row in latest_rows}
             prices = []
@@ -228,19 +229,19 @@ def create_price_router() -> APIRouter:
         target_date: date = Query(..., alias="date"),
         db: Session = Depends(get_db),
     ) -> list[PriceResponse]:
-        logger.info("Daily price lookup requested for date=%s", target_date)
+        logger.info("Price lookup requested for date=%s", target_date)
         try:
             rows = (
                 db.query(Price)
                 .options(joinedload(Price.ticker))
-                .filter(Price.date == target_date)
+                .filter(Price.price_at >= target_date, Price.price_at < date(target_date.year, target_date.month, target_date.day + 1))
                 .all()
             )
             prices = [_to_response(row, db) for row in rows]
-            logger.debug("Daily price lookup returned count=%s", len(prices))
+            logger.debug("Price lookup returned count=%s", len(prices))
             return prices
         except Exception:
-            logger.exception("Daily price lookup failed for date=%s", target_date)
+            logger.exception("Price lookup failed for date=%s", target_date)
             raise
 
     @router.get("/history", response_model=list[PriceHistorySeriesResponse])
