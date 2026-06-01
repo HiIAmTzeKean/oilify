@@ -44,8 +44,18 @@ const buildPath = (
   return data.reduce((path, point, index) => `${path}${index === 0 ? 'M' : 'L'} ${point.x} ${point.y} `, '').trim()
 }
 
-const hasPriceDate = (point: { price_date?: string | null }): boolean => {
-  return typeof point.price_date === 'string' && point.price_date.trim().length > 0
+const getPointDate = (point: { price_date?: string | null; timestamp?: string | null }): string | null => {
+  const rawDate = point.price_date ?? point.timestamp ?? null
+  if (typeof rawDate !== 'string') {
+    return null
+  }
+
+  const trimmed = rawDate.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+const hasPointDate = (point: { price_date?: string | null; timestamp?: string | null }): boolean => {
+  return getPointDate(point) !== null
 }
 
 const isPriceOverlayIndicator = (indicatorName: string): boolean => {
@@ -72,8 +82,8 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
     item.technical_indicators.flatMap((indicatorSeries) => indicatorSeries.points),
   )
   const allDates = Array.from(
-    new Set([...allPoints, ...indicatorPoints].map((point) => point.price_date)),
-  ).sort()
+    new Set([...allPoints, ...indicatorPoints].map((point) => getPointDate(point)).filter(Boolean)),
+  ).sort() as string[]
 
   if (allDates.length === 0 || allPoints.length === 0) {
     return (
@@ -189,18 +199,16 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
           )
         })}
 
-        {series.map((item) => {
+        {series
+          .filter((item) => item.points.some((point) => hasPointDate(point)))
+          .map((item) => {
           const orderedPoints = item.points
-            .filter((point) => hasPriceDate(point))
+            .filter((point) => hasPointDate(point))
             .slice()
-            .sort((left, right) => left.price_date.localeCompare(right.price_date))
-
-          if (orderedPoints.length === 0) {
-            return null
-          }
+            .sort((left, right) => (getPointDate(left) ?? '').localeCompare(getPointDate(right) ?? ''))
 
           const mappedPoints = orderedPoints.map((point) => ({
-            x: xForDate(point.price_date),
+            x: xForDate(getPointDate(point) ?? ''),
             y: yForValue(point.price),
           }))
           const path = buildPath(mappedPoints)
@@ -214,25 +222,24 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
               ))}
 
               {item.technical_indicators
-                .filter((indicatorSeries) => isPriceOverlayIndicator(indicatorSeries.indicator_name))
+                .filter((indicatorSeries) => {
+                  if (!isPriceOverlayIndicator(indicatorSeries.indicator_name)) return false
+                  return indicatorSeries.points.some((point) => hasPointDate(point))
+                })
                 .map((indicatorSeries) => {
                   const mappedIndicatorPoints = indicatorSeries.points
-                    .filter((point) => hasPriceDate(point))
+                    .filter((point) => hasPointDate(point))
                     .slice()
-                    .sort((left, right) => left.price_date.localeCompare(right.price_date))
+                    .sort((left, right) => (getPointDate(left) ?? '').localeCompare(getPointDate(right) ?? ''))
                     .map((point) => ({
-                      x: xForDate(point.price_date),
+                      x: xForDate(getPointDate(point) ?? ''),
                       y: yForValue(point.indicator_value),
                     }))
 
-                  if (mappedIndicatorPoints.length === 0) {
-                    return null
-                  }
-
                   const orderedIndicatorPoints = indicatorSeries.points
-                    .filter((point) => hasPriceDate(point))
+                    .filter((point) => hasPointDate(point))
                     .slice()
-                    .sort((left, right) => left.price_date.localeCompare(right.price_date))
+                    .sort((left, right) => (getPointDate(left) ?? '').localeCompare(getPointDate(right) ?? ''))
 
                   return (
                     <React.Fragment key={`${item.ticker}-${indicatorSeries.indicator_name}`}>
@@ -247,7 +254,7 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
                       />
                       {mappedIndicatorPoints.map((point, index) => (
                         <circle
-                          key={`${item.ticker}-${indicatorSeries.indicator_name}-${orderedIndicatorPoints[index].price_date}`}
+                          key={`${item.ticker}-${indicatorSeries.indicator_name}-${getPointDate(orderedIndicatorPoints[index]) ?? index}`}
                           cx={point.x}
                           cy={point.y}
                           r="3"

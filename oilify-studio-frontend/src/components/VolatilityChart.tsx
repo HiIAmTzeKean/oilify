@@ -42,9 +42,19 @@ const buildPath = (data: Array<{ x: number; y: number }>): string => {
   return data.reduce((path, point, index) => `${path}${index === 0 ? 'M' : 'L'} ${point.x} ${point.y} `, '').trim()
 }
 
+const getPointDate = (point: { price_date?: string | null; timestamp?: string | null }): string | null => {
+  const rawDate = point.price_date ?? point.timestamp ?? null
+  if (typeof rawDate !== 'string') {
+    return null
+  }
+
+  const trimmed = rawDate.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
 export default function VolatilityChart({ series }: VolatilityChartProps) {
   const volatilityPoints = series.flatMap((item) => item.historical_volatility.flatMap((s) => s.points))
-  const allDates = Array.from(new Set(volatilityPoints.map((point) => point.price_date))).sort()
+  const allDates = Array.from(new Set(volatilityPoints.map((point) => getPointDate(point)).filter(Boolean))).sort() as string[]
 
   if (allDates.length === 0 || volatilityPoints.length === 0) {
     return (
@@ -142,9 +152,17 @@ export default function VolatilityChart({ series }: VolatilityChartProps) {
 
         {series.map((item) => {
           const flatVolatility = item.historical_volatility.flatMap((s) => s.points)
-          const orderedPoints = [...flatVolatility].sort((left, right) => left.price_date.localeCompare(right.price_date))
+          const orderedPoints = flatVolatility
+            .filter((point) => getPointDate(point) !== null)
+            .slice()
+            .sort((left, right) => (getPointDate(left) ?? '').localeCompare(getPointDate(right) ?? ''))
+
+          if (orderedPoints.length === 0) {
+            return null
+          }
+
           const mappedPoints = orderedPoints.map((point) => ({
-            x: xForDate(point.price_date),
+            x: xForDate(getPointDate(point) ?? ''),
             y: yForValue(point.annualized_volatility * 100),
           }))
           const stroke = getTickerColor(item.ticker)
@@ -166,7 +184,7 @@ export default function VolatilityChart({ series }: VolatilityChartProps) {
               />
               {mappedPoints.map((point, index) => (
                 <circle
-                  key={`${item.ticker}-${orderedPoints[index].price_date}`}
+                  key={`${item.ticker}-${getPointDate(orderedPoints[index]) ?? index}`}
                   cx={point.x}
                   cy={point.y}
                   r="4"

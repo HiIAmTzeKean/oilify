@@ -13,6 +13,10 @@ import { getTickerColor } from '../lib/tickerColor'
 
 const HISTORY_DAYS = 30
 
+const getPointDate = (value: { price_date?: string | null; timestamp?: string | null }): string => {
+  return value.price_date ?? value.timestamp ?? 'Unknown date'
+}
+
 export default function Prices() {
   const [prices, setPrices] = React.useState<Price[]>([])
   const [history, setHistory] = React.useState<PriceHistorySeries[]>([])
@@ -201,7 +205,7 @@ export default function Prices() {
                       </div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-                      <span>Price date: {price.price_date}</span>
+                      <span>Price date: {getPointDate(price)}</span>
                       {formattedPreviousPrice !== null && (
                         <span>Yesterday: {formattedPreviousPrice}</span>
                       )}

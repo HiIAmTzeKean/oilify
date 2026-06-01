@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from oilify_studio_backend.api_models.price import (
     HistoricalVolatilityPointResponse,
+    HistoricalVolatilitySeriesResponse,
     PriceHistoryPointResponse,
     PriceHistorySeriesResponse,
     PriceIndicatorPointResponse,
     PriceIndicatorSeriesResponse,
-    HistoricalVolatilitySeriesResponse,
     PriceResponse,
     PriceSyncResponse,
 )
@@ -252,7 +252,7 @@ def create_price_router() -> APIRouter:
         logger.info("Historical price lookup requested days=%s", days)
         try:
             series = _group_history_points(db, days)
-            logger.debug(
+            logger.debug (
                 "Historical price lookup returned series=%s",
                 [item.symbol for item in series],
             )

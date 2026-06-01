@@ -4,7 +4,8 @@ from datetime import UTC, datetime
 from typing import cast
 
 import yfinance as yf
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, aliased
 
 from oilify_studio_backend.db.schema import Price, Tickers
 from oilify_studio_backend.services.analytics import rebuild_market_analytics
@@ -249,16 +250,27 @@ def get_latest_prices(db: Session) -> list[LatestPricePoint]:
     logger.debug("Fetching latest prices")
     results: list[LatestPricePoint] = []
     for ticker_row in _get_ticker_rows(db):
-        rows = (
-            db.query(Price)
+        # Tag each price row with its rank within its calendar date (newest first),
+        # then take the top 2 dates' latest rows.
+        rn = (
+            func.row_number()
+            .over(partition_by=func.date(Price.timestamp), order_by=Price.timestamp.desc())
+            .label("rn")
+        )
+        ranked = (
+            db.query(Price, rn)
             .filter(Price.ticker_id == ticker_row.id)
-            .order_by(Price.timestamp.desc(), Price.id.desc())
+            .subquery()
+        )
+        ranked_price = aliased(Price, ranked)
+        rows = (
+            db.query(ranked_price)
+            .filter(ranked.c.rn == 1)
+            .order_by(ranked.c.timestamp.desc())
             .limit(2)
             .all()
         )
         if rows:
-            current_row = rows[0]
-            previous_row = rows[1] if len(rows) > 1 else None
-            results.append(LatestPricePoint(current=current_row, previous=previous_row))
+            results.append(LatestPricePoint(current=rows[0], previous=rows[1] if len(rows) > 1 else None))
     logger.info("Fetched latest prices for %s symbols", len(results))
     return results
