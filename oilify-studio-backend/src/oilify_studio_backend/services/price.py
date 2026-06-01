@@ -120,7 +120,7 @@ def fetch_current_prices(db: Session) -> list[PricePoint]:
             ticker,
             price,
             currency,
-            price_at,
+            timestamp,
         )
     logger.info("Fetched %s current prices", len(points))
     return points

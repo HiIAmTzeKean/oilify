@@ -151,7 +151,7 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
         [
             Price(
                 ticker_id=wti_ticker.id,
-                price_at=yesterday_mid,
+                timestamp=yesterday_mid,
                 price=99.0,
                 currency="USD",
                 source="yahoo_finance",
@@ -159,7 +159,7 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
             ),
             Price(
                 ticker_id=wti_ticker.id,
-                price_at=today_start,
+                timestamp=today_start,
                 price=100.0,
                 currency="USD",
                 source="yahoo_finance",
@@ -167,7 +167,7 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
             ),
             Price(
                 ticker_id=brent_ticker.id,
-                price_at=yesterday_mid,
+                timestamp=yesterday_mid,
                 price=101.0,
                 currency="USD",
                 source="yahoo_finance",
@@ -175,7 +175,7 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
             ),
             Price(
                 ticker_id=brent_ticker.id,
-                price_at=today_start,
+                timestamp=today_start,
                 price=102.0,
                 currency="USD",
                 source="yahoo_finance",
@@ -189,7 +189,10 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
 
     assert isinstance(latest_rows[0], LatestPricePoint)
     assert [row.current.ticker.symbol for row in latest_rows] == ["WTI", "BRENT"]
-    assert [row.current.timestamp.replace(tzinfo=UTC) for row in latest_rows] == [today_start, today_start]
+    assert [
+        row.current.timestamp.replace(tzinfo=UTC)
+        for row in latest_rows
+    ] == [today_start, today_start]
     previous_dates = []
     for row in latest_rows:
         assert row.previous is not None
