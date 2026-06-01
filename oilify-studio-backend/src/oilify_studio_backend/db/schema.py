@@ -37,7 +37,7 @@ class Tickers(Base):
 
 class Price(Base):
     __tablename__ = "prices"
-    __table_args__ = (UniqueConstraint("ticker_id", "price_date", name="uq_price_ticker_date"),)
+    __table_args__ = (UniqueConstraint("ticker_id", "date", name="uq_price_ticker_date"),)
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -46,7 +46,7 @@ class Price(Base):
         autoincrement=True,
     )
     ticker_id: Mapped[int] = mapped_column(ForeignKey("tickers.id"), nullable=False)
-    price_date: Mapped[date] = mapped_column(Date, nullable=False, default=lambda: date.today())
+    date: Mapped[date] = mapped_column(Date, nullable=False, default=lambda: date.today())
     price: Mapped[float] = mapped_column(Float, nullable=False)
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="USD")
     source: Mapped[str] = mapped_column(String(64), nullable=False, default="yahoo_finance")
@@ -72,7 +72,13 @@ class Price(Base):
 class TechnicalIndicator(Base):
     __tablename__ = "technical_indicators"
     __table_args__ = (
-        UniqueConstraint("ticker_id", "indicator_date", "indicator_name", name="uq_indicator_ticker_date_name"),
+        UniqueConstraint(
+            "ticker_id",
+            "date",
+            "name",
+            "window_size",
+            name="uq_indicator_ticker_date_name_window",
+        ),
     )
 
     id: Mapped[int] = mapped_column(
@@ -82,9 +88,9 @@ class TechnicalIndicator(Base):
         autoincrement=True,
     )
     ticker_id: Mapped[int] = mapped_column(ForeignKey("tickers.id"), nullable=False)
-    indicator_date: Mapped[date] = mapped_column(Date, nullable=False)
-    indicator_name: Mapped[str] = mapped_column(String(32), nullable=False)
-    indicator_value: Mapped[float] = mapped_column(Float, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    name: Mapped[str] = mapped_column(String(32), nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
     window_size: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -97,7 +103,12 @@ class TechnicalIndicator(Base):
 class HistoricalVolatility(Base):
     __tablename__ = "historical_volatility"
     __table_args__ = (
-        UniqueConstraint("ticker_id", "volatility_date", "window_size", name="uq_volatility_ticker_date_window"),
+        UniqueConstraint(
+            "ticker_id",
+            "date",
+            "window_size",
+            name="uq_volatility_ticker_date_window",
+        ),
     )
 
     id: Mapped[int] = mapped_column(
@@ -107,8 +118,8 @@ class HistoricalVolatility(Base):
         autoincrement=True,
     )
     ticker_id: Mapped[int] = mapped_column(ForeignKey("tickers.id"), nullable=False)
-    volatility_date: Mapped[date] = mapped_column(Date, nullable=False)
-    annualized_volatility: Mapped[float] = mapped_column(Float, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
     window_size: Mapped[int] = mapped_column(Integer, nullable=False)
     annualization_factor: Mapped[int] = mapped_column(Integer, nullable=False, default=252)
     created_at: Mapped[datetime] = mapped_column(

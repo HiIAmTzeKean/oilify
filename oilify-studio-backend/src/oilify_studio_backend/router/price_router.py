@@ -11,6 +11,7 @@ from oilify_studio_backend.api_models.price import (
     PriceHistorySeriesResponse,
     PriceIndicatorPointResponse,
     PriceIndicatorSeriesResponse,
+    HistoricalVolatilitySeriesResponse,
     PriceResponse,
     PriceSyncResponse,
 )
@@ -31,12 +32,14 @@ from oilify_studio_backend.services.price import (
 logger = logging.getLogger(__name__)
 
 
-def _to_response(row: Price, db: Session) -> PriceResponse:
+def _to_response(row: Price, db: Session, previous_price: float | None = None) -> PriceResponse:
     ticker = row.ticker
     if ticker is None:
         ticker = db.query(Tickers).filter(Tickers.id == row.ticker_id).one_or_none()
 
-    previous_price = getattr(row, "previous_price", None)
+    if previous_price is None:
+        previous_price = getattr(row, "previous_price", None)
+
     price_change = None
     price_change_pct = None
     if previous_price is not None:
@@ -49,7 +52,7 @@ def _to_response(row: Price, db: Session) -> PriceResponse:
         ticker=ticker.ticker if ticker is not None else "",
         short_name=ticker.short_name if ticker is not None else None,
         long_name=ticker.long_name if ticker is not None else None,
-        price_date=row.price_date,
+        price_date=row.date,
         price=row.price,
         previous_price=previous_price,
         price_change=price_change,
@@ -78,39 +81,58 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
             )
         )
 
-    indicator_series: dict[tuple[str, str], dict[str, list[PriceIndicatorPointResponse]]] = defaultdict(
-        lambda: defaultdict(list)
+    # indicator_series: series_key -> (indicator_name, window_size) -> points
+    indicator_series: dict[tuple[str, str], dict[tuple[str, int], list[PriceIndicatorPointResponse]]] = (
+        defaultdict(lambda: defaultdict(list))
     )
-    volatility_series: dict[tuple[str, str], list[HistoricalVolatilityPointResponse]] = defaultdict(list)
+    # volatility_series: series_key -> window_size -> {annualization_factor, points}
+    volatility_series: dict[tuple[str, str], dict[int, dict]] = defaultdict(lambda: defaultdict(dict))
 
     if cutoff_date is not None:
         indicator_rows = (
             db.query(Tickers, TechnicalIndicator)
             .join(TechnicalIndicator, TechnicalIndicator.ticker_id == Tickers.id)
-            .filter(TechnicalIndicator.indicator_date >= cutoff_date)
-            .order_by(Tickers.id, TechnicalIndicator.indicator_name, TechnicalIndicator.indicator_date)
+            .filter(TechnicalIndicator.date >= cutoff_date)
+            .order_by(
+                Tickers.id,
+                TechnicalIndicator.name,
+                TechnicalIndicator.window_size,
+                TechnicalIndicator.date,
+            )
             .all()
         )
         for ticker_row, indicator_row in indicator_rows:
-            indicator_series[(ticker_row.symbol, ticker_row.ticker)][indicator_row.indicator_name].append(
+            series_key = (ticker_row.symbol, ticker_row.ticker)
+            key = (indicator_row.name, indicator_row.window_size)
+            indicator_series[series_key][key].append(
                 PriceIndicatorPointResponse(
-                    price_date=indicator_row.indicator_date,
-                    indicator_value=indicator_row.indicator_value,
+                    price_date=indicator_row.date,
+                    indicator_value=indicator_row.value,
                 )
             )
 
         volatility_rows = (
             db.query(Tickers, HistoricalVolatility)
             .join(HistoricalVolatility, HistoricalVolatility.ticker_id == Tickers.id)
-            .filter(HistoricalVolatility.volatility_date >= cutoff_date)
-            .order_by(Tickers.id, HistoricalVolatility.volatility_date)
+            .filter(HistoricalVolatility.date >= cutoff_date)
+            .order_by(Tickers.id, HistoricalVolatility.window_size, HistoricalVolatility.date)
             .all()
         )
         for ticker_row, volatility_row in volatility_rows:
-            volatility_series[(ticker_row.symbol, ticker_row.ticker)].append(
+            series_key = (ticker_row.symbol, ticker_row.ticker)
+            ws = volatility_row.window_size
+            entry = volatility_series[series_key].get(ws)
+            if not entry:
+                volatility_series[series_key][ws] = {
+                    "annualization_factor": volatility_row.annualization_factor,
+                    "points": [],
+                }
+                entry = volatility_series[series_key][ws]
+
+            entry["points"].append(
                 HistoricalVolatilityPointResponse(
-                    price_date=volatility_row.volatility_date,
-                    annualized_volatility=volatility_row.annualized_volatility,
+                    price_date=volatility_row.date,
+                    annualized_volatility=volatility_row.value,
                 )
             )
 
@@ -123,10 +145,22 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
             PriceIndicatorSeriesResponse(
                 indicator_name=indicator_name,
                 indicator_label=indicator_name.replace("_", " ").upper(),
+                window_size=window_size,
                 points=points,
             )
-            for indicator_name, points in indicator_series.get(series_key, {}).items()
+            for (indicator_name, window_size), points in indicator_series.get(series_key, {}).items()
         ]
+        # build volatility series objects
+        hv_series_list: list[HistoricalVolatilitySeriesResponse] = []
+        for ws, entry in sorted(volatility_series.get(series_key, {}).items()):
+            hv_series_list.append(
+                HistoricalVolatilitySeriesResponse(
+                    window_size=ws,
+                    annualization_factor=entry["annualization_factor"],
+                    points=sorted(entry["points"], key=lambda p: p.price_date),
+                )
+            )
+
         series.append(
             PriceHistorySeriesResponse(
                 symbol=ticker_row.symbol,
@@ -136,9 +170,7 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
                 currency=series_currency.get(series_key),
                 points=sorted(point_list, key=lambda point: point.price_date),
                 technical_indicators=indicator_list,
-                historical_volatility=sorted(
-                    volatility_series.get(series_key, []), key=lambda point: point.price_date
-                ),
+                historical_volatility=hv_series_list,
             )
         )
 
@@ -153,13 +185,22 @@ def create_price_router() -> APIRouter:
         logger.info("Price refresh requested")
         try:
             rows = ingest_daily_prices(db)
-            prices = [_to_response(row, db) for row in rows]
+            latest_rows = get_latest_prices(db)
+            latest_rows_by_ticker_id = {row.current.ticker_id: row for row in latest_rows}
+            prices = []
+            for row in rows:
+                latest_row = latest_rows_by_ticker_id.get(row.ticker_id)
+                previous_price = None
+                if latest_row is not None and latest_row.previous is not None:
+                    previous_price = latest_row.previous.price
+
+                prices.append(_to_response(row, db, previous_price))
             logger.info("Price refresh completed updated_rows=%s", len(prices))
             logger.debug(
                 "Price refresh returned symbols=%s",
                 [price.symbol for price in prices],
             )
-            return PriceSyncResponse(updated_rows=len(prices), prices=prices)
+            return PriceSyncResponse(updated_rows=len(rows), prices=prices)
         except Exception:
             logger.exception("Price refresh failed")
             raise
@@ -169,14 +210,10 @@ def create_price_router() -> APIRouter:
         logger.info("Latest price lookup requested")
         try:
             rows = get_latest_prices(db)
-            prices = [_to_response(row.current, db) for row in rows]
-            for index, row in enumerate(rows):
+            prices = []
+            for row in rows:
                 previous_price = row.previous.price if row.previous is not None else None
-                prices[index].previous_price = previous_price
-                if previous_price is not None:
-                    prices[index].price_change = prices[index].price - previous_price
-                    if previous_price != 0:
-                        prices[index].price_change_pct = (prices[index].price_change / previous_price) * 100
+                prices.append(_to_response(row.current, db, previous_price))
             logger.debug(
                 "Latest price lookup returned symbols=%s",
                 [price.symbol for price in prices],
@@ -196,7 +233,7 @@ def create_price_router() -> APIRouter:
             rows = (
                 db.query(Price)
                 .options(joinedload(Price.ticker))
-                .filter(Price.price_date == target_date)
+                .filter(Price.date == target_date)
                 .all()
             )
             prices = [_to_response(row, db) for row in rows]

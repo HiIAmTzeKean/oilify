@@ -36,12 +36,19 @@ class PriceIndicatorPointResponse(BaseModel):
 class PriceIndicatorSeriesResponse(BaseModel):
     indicator_name: str
     indicator_label: str
+    window_size: int | None = None
     points: list[PriceIndicatorPointResponse]
 
 
 class HistoricalVolatilityPointResponse(BaseModel):
     price_date: date
     annualized_volatility: float
+
+
+class HistoricalVolatilitySeriesResponse(BaseModel):
+    window_size: int
+    annualization_factor: int
+    points: list[HistoricalVolatilityPointResponse]
 
 
 class PriceHistorySeriesResponse(BaseModel):
@@ -52,4 +59,4 @@ class PriceHistorySeriesResponse(BaseModel):
     currency: str | None = None
     points: list[PriceHistoryPointResponse]
     technical_indicators: list[PriceIndicatorSeriesResponse] = Field(default_factory=list)
-    historical_volatility: list[HistoricalVolatilityPointResponse] = Field(default_factory=list)
+    historical_volatility: list[HistoricalVolatilitySeriesResponse] = Field(default_factory=list)

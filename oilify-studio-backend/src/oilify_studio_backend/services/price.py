@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from typing import cast
 
 import yfinance as yf
 from sqlalchemy.orm import Session
@@ -57,7 +58,10 @@ def _extract_currency(ticker_symbol: str) -> str:
             logger.debug("Using fast_info currency for ticker=%s", ticker_symbol)
             return str(currency)
 
-    logger.debug("Fast info currency unavailable for ticker=%s; falling back to history metadata", ticker_symbol)
+    logger.debug(
+        "Fast info currency unavailable for ticker=%s; falling back to history metadata",
+        ticker_symbol,
+    )
     history = ticker.history(period="1d", interval="1d", auto_adjust=False)
     metadata = getattr(history, "_history_metadata", None)
     if isinstance(metadata, dict):
@@ -104,7 +108,13 @@ def fetch_current_prices(db: Session) -> list[PricePoint]:
                 fetched_at=now,
             )
         )
-        logger.debug("Fetched price symbol=%s ticker=%s price=%s currency=%s", symbol, ticker, price, currency)
+        logger.debug(
+            "Fetched price symbol=%s ticker=%s price=%s currency=%s",
+            symbol,
+            ticker,
+            price,
+            currency,
+        )
     logger.info("Fetched %s current prices", len(points))
     return points
 
@@ -139,18 +149,19 @@ def fetch_historical_prices(db: Session, days: int = 30) -> list[PricePoint]:
                 days,
             )
 
-        for price_date, row in recent_rows:
+        for price_timestamp, row in recent_rows:
             close_price = row["Close"]
             if close_price is None or close_price != close_price:
                 continue
 
+            price_timestamp = cast(datetime, price_timestamp)
             points.append(
                 PricePoint(
                     symbol=symbol,
                     ticker=ticker,
                     price=float(close_price),
                     currency=currency,
-                    price_date=price_date.date(),
+                    price_date=price_timestamp.date(),
                     fetched_at=fetched_at,
                 )
             )
@@ -189,7 +200,7 @@ def upsert_daily_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
         ticker_row = _get_or_create_ticker(db, point.symbol, point.ticker)
         existing = (
             db.query(Price)
-            .filter(Price.ticker_id == ticker_row.id, Price.price_date == point.price_date)
+            .filter(Price.ticker_id == ticker_row.id, Price.date == point.price_date)
             .first()
         )
         if existing:
@@ -201,7 +212,7 @@ def upsert_daily_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
         else:
             row = Price(
                 ticker_id=ticker_row.id,
-                price_date=point.price_date,
+                date=point.price_date,
                 price=point.price,
                 currency=point.currency,
                 source="yahoo_finance",
@@ -234,7 +245,7 @@ def get_latest_prices(db: Session) -> list[LatestPricePoint]:
         rows = (
             db.query(Price)
             .filter(Price.ticker_id == ticker_row.id)
-            .order_by(Price.price_date.desc(), Price.id.desc())
+            .order_by(Price.date.desc(), Price.id.desc())
             .limit(2)
             .all()
         )

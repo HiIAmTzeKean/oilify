@@ -37,12 +37,12 @@ def _group_price_rows(db: Session) -> dict[int, list[PriceSeriesPoint]]:
     grouped_rows: dict[int, list[PriceSeriesPoint]] = defaultdict(list)
     rows = (
         db.query(Price)
-        .order_by(Price.ticker_id, Price.price_date, Price.id)
+        .order_by(Price.ticker_id, Price.date, Price.id)
         .all()
     )
     for row in rows:
         grouped_rows[row.ticker_id].append(
-            PriceSeriesPoint(price_date=row.price_date, price=row.price)
+            PriceSeriesPoint(price_date=row.date, price=row.price)
         )
     return grouped_rows
 
@@ -164,9 +164,9 @@ def rebuild_market_analytics(db: Session) -> RecalculatedAnalytics:
         indicator_rows.extend(
             TechnicalIndicator(
                 ticker_id=ticker_id,
-                indicator_date=indicator_date,
-                indicator_name="sma_20",
-                indicator_value=indicator_value,
+                date=indicator_date,
+                name="sma_20",
+                value=indicator_value,
                 window_size=SMA_WINDOW,
             )
             for indicator_date, indicator_value in sma_points
@@ -174,9 +174,9 @@ def rebuild_market_analytics(db: Session) -> RecalculatedAnalytics:
         indicator_rows.extend(
             TechnicalIndicator(
                 ticker_id=ticker_id,
-                indicator_date=indicator_date,
-                indicator_name="ema_20",
-                indicator_value=indicator_value,
+                date=indicator_date,
+                name="ema_20",
+                value=indicator_value,
                 window_size=EMA_WINDOW,
             )
             for indicator_date, indicator_value in ema_points
@@ -184,9 +184,9 @@ def rebuild_market_analytics(db: Session) -> RecalculatedAnalytics:
         indicator_rows.extend(
             TechnicalIndicator(
                 ticker_id=ticker_id,
-                indicator_date=indicator_date,
-                indicator_name="rsi_14",
-                indicator_value=indicator_value,
+                date=indicator_date,
+                name="rsi_14",
+                value=indicator_value,
                 window_size=RSI_WINDOW,
             )
             for indicator_date, indicator_value in rsi_points
@@ -194,8 +194,8 @@ def rebuild_market_analytics(db: Session) -> RecalculatedAnalytics:
         volatility_rows.extend(
             HistoricalVolatility(
                 ticker_id=ticker_id,
-                volatility_date=volatility_date,
-                annualized_volatility=volatility_value,
+                date=volatility_date,
+                value=volatility_value,
                 window_size=VOLATILITY_WINDOW,
                 annualization_factor=ANNUALIZATION_FACTOR,
             )

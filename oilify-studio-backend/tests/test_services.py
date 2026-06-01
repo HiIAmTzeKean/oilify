@@ -108,7 +108,7 @@ def test_upsert_daily_prices_inserts_and_updates(db_session) -> None:
     stored_row = (
         db_session.query(Price)
         .join(Price.ticker)
-        .filter(Tickers.symbol == "WTI", Price.price_date == today)
+        .filter(Tickers.symbol == "WTI", Price.date == today)
         .one()
     )
     assert stored_row.price == 110.0
@@ -128,7 +128,7 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
         [
             Price(
                 ticker_id=wti_ticker.id,
-                price_date=yesterday,
+                date=yesterday,
                 price=99.0,
                 currency="USD",
                 source="yahoo_finance",
@@ -136,7 +136,7 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
             ),
             Price(
                 ticker_id=wti_ticker.id,
-                price_date=today,
+                date=today,
                 price=100.0,
                 currency="USD",
                 source="yahoo_finance",
@@ -144,7 +144,7 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
             ),
             Price(
                 ticker_id=brent_ticker.id,
-                price_date=yesterday,
+                date=yesterday,
                 price=101.0,
                 currency="USD",
                 source="yahoo_finance",
@@ -152,7 +152,7 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
             ),
             Price(
                 ticker_id=brent_ticker.id,
-                price_date=today,
+                date=today,
                 price=102.0,
                 currency="USD",
                 source="yahoo_finance",
@@ -166,8 +166,12 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
 
     assert isinstance(latest_rows[0], LatestPricePoint)
     assert [row.current.ticker.symbol for row in latest_rows] == ["WTI", "BRENT"]
-    assert [row.current.price_date for row in latest_rows] == [today, today]
-    assert [row.previous.price_date for row in latest_rows] == [yesterday, yesterday]
+    assert [row.current.date for row in latest_rows] == [today, today]
+    previous_dates = []
+    for row in latest_rows:
+        assert row.previous is not None
+        previous_dates.append(row.previous.date)
+    assert previous_dates == [yesterday, yesterday]
 
 
 def test_rebuild_market_analytics_persists_indicator_rows(db_session) -> None:
@@ -183,7 +187,7 @@ def test_rebuild_market_analytics_persists_indicator_rows(db_session) -> None:
         rows.append(
             Price(
                 ticker_id=ticker_ids["CL=F"],
-                price_date=price_date,
+                date=price_date,
                 price=100.0 + day_offset,
                 currency="USD",
                 source="yahoo_finance",
@@ -193,7 +197,7 @@ def test_rebuild_market_analytics_persists_indicator_rows(db_session) -> None:
         rows.append(
             Price(
                 ticker_id=ticker_ids["BZ=F"],
-                price_date=price_date,
+                date=price_date,
                 price=110.0 + day_offset,
                 currency="USD",
                 source="yahoo_finance",

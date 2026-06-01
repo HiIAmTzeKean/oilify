@@ -26,7 +26,7 @@ const buildPath = (data: Array<{ x: number; y: number }>): string => {
 }
 
 export default function VolatilityChart({ series }: VolatilityChartProps) {
-  const volatilityPoints = series.flatMap((item) => item.historical_volatility)
+  const volatilityPoints = series.flatMap((item) => item.historical_volatility.flatMap((s) => s.points))
   const allDates = Array.from(new Set(volatilityPoints.map((point) => point.price_date))).sort()
 
   if (allDates.length === 0 || volatilityPoints.length === 0) {
@@ -79,7 +79,8 @@ export default function VolatilityChart({ series }: VolatilityChartProps) {
         </div>
         <div className="flex flex-wrap gap-3 text-xs text-slate-300">
           {series.map((item) => {
-            const lastVolatility = item.historical_volatility.at(-1)
+            const flatVolatility = item.historical_volatility.flatMap((s) => s.points)
+            const lastVolatility = flatVolatility.at(-1)
             return (
               <div key={item.ticker} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getTickerColor(item.ticker) }} />
@@ -123,7 +124,8 @@ export default function VolatilityChart({ series }: VolatilityChartProps) {
         })}
 
         {series.map((item) => {
-          const orderedPoints = [...item.historical_volatility].sort((left, right) => left.price_date.localeCompare(right.price_date))
+          const flatVolatility = item.historical_volatility.flatMap((s) => s.points)
+          const orderedPoints = [...flatVolatility].sort((left, right) => left.price_date.localeCompare(right.price_date))
           const mappedPoints = orderedPoints.map((point) => ({
             x: xForDate(point.price_date),
             y: yForValue(point.annualized_volatility * 100),

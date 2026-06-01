@@ -3,7 +3,7 @@
 from datetime import UTC, date, datetime, timedelta
 
 from oilify_studio_backend.db.schema import HistoricalVolatility, Price, TechnicalIndicator, Tickers
-from oilify_studio_backend.services.price import PricePoint
+from oilify_studio_backend.services.price import PricePoint, upsert_daily_prices
 
 
 def _make_price(
@@ -14,7 +14,7 @@ def _make_price(
 ) -> Price:
     return Price(
         ticker_id=ticker_id,
-        price_date=price_date,
+        date=price_date,
         price=price,
         currency="USD",
         source="yahoo_finance",
@@ -39,6 +39,38 @@ def test_refresh_prices_returns_upserted_rows(client, mocker) -> None:
     assert payload["updated_rows"] == 2
     assert [item["symbol"] for item in payload["prices"]] == ["CL=F", "BZ=F"]
     assert [item["short_name"] for item in payload["prices"]] == ["CL=F short", "BZ=F short"]
+
+
+def test_refresh_prices_includes_previous_day_comparison(client, db_session, mocker) -> None:
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    custom_ticker = Tickers(symbol="TEST", ticker="TEST")
+    db_session.add(custom_ticker)
+    db_session.flush()
+    db_session.add(
+        _make_price(
+            ticker_id=custom_ticker.id,
+            price_date=yesterday,
+            price=99.0,
+        )
+    )
+    db_session.commit()
+
+    current_points = [PricePoint("TEST", "TEST", 101.0, "USD", today, datetime.now(UTC))]
+    mocker.patch(
+        "oilify_studio_backend.router.price_router.ingest_daily_prices",
+        side_effect=lambda db: upsert_daily_prices(db, current_points),
+    )
+
+    response = client.post("/api/v1/prices/refresh")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["updated_rows"] == 1
+    assert payload["prices"][0]["previous_price"] == 99.0
+    assert payload["prices"][0]["price_change"] == 2.0
+    assert round(payload["prices"][0]["price_change_pct"], 2) == 2.02
 
 
 def test_latest_prices_returns_latest_rows(client, db_session) -> None:
@@ -103,22 +135,22 @@ def test_history_prices_returns_grouped_series(client, db_session, mocker) -> No
         [
             TechnicalIndicator(
                 ticker_id=wti_ticker.id,
-                indicator_date=yesterday,
-                indicator_name="sma_20",
-                indicator_value=99.0,
+                date=yesterday,
+                name="sma_20",
+                value=99.0,
                 window_size=20,
             ),
             TechnicalIndicator(
                 ticker_id=wti_ticker.id,
-                indicator_date=today,
-                indicator_name="sma_20",
-                indicator_value=100.0,
+                date=today,
+                name="sma_20",
+                value=100.0,
                 window_size=20,
             ),
             HistoricalVolatility(
                 ticker_id=wti_ticker.id,
-                volatility_date=today,
-                annualized_volatility=0.32,
+                date=today,
+                value=0.32,
                 window_size=20,
                 annualization_factor=252,
             ),
