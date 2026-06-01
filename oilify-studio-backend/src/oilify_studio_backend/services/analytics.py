@@ -37,12 +37,12 @@ def _group_price_rows(db: Session) -> dict[int, list[PriceSeriesPoint]]:
     """Group prices by ticker, aggregated to daily (last price of each day)."""
     raw_rows = (
         db.query(Price)
-        .order_by(Price.ticker_id, Price.price_at, Price.id)
+        .order_by(Price.ticker_id, Price.timestamp, Price.id)
         .all()
     )
     daily: dict[int, dict[date, float]] = defaultdict(dict)
     for row in raw_rows:
-        daily[row.ticker_id][row.price_at.date()] = row.price
+        daily[row.ticker_id][row.timestamp.date()] = row.price
 
     result: dict[int, list[PriceSeriesPoint]] = {}
     for ticker_id, day_map in daily.items():

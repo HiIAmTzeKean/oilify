@@ -58,7 +58,7 @@ def test_fetch_current_prices_uses_supported_tickers(db_session, monkeypatch) ->
     assert [point.ticker for point in points] == ["CL=F", "BZ=F"]
     assert [point.price for point in points] == [101.25, 104.5]
     assert [point.currency for point in points] == ["USD", "USD"]
-    assert all(point.price_at == expected_price_at for point in points)
+    assert all(point.timestamp == expected_price_at for point in points)
     assert all(point.fetched_at.tzinfo is not None for point in points)
 
 
@@ -105,8 +105,8 @@ def test_fetch_historical_prices_returns_last_30_rows_per_ticker(db_session, mon
     assert len(points) == 60
     assert [point.symbol for point in points[:30]] == ["WTI"] * 30
     assert [point.symbol for point in points[30:]] == ["BRENT"] * 30
-    assert points[0].price_at == datetime(2025, 1, 6)
-    assert points[-1].price_at == datetime(2025, 2, 4)
+    assert points[0].timestamp == datetime(2025, 1, 6)
+    assert points[-1].timestamp == datetime(2025, 2, 4)
 
 
 def test_upsert_prices_inserts_and_updates(db_session) -> None:
@@ -128,7 +128,7 @@ def test_upsert_prices_inserts_and_updates(db_session) -> None:
     stored_row = (
         db_session.query(Price)
         .join(Price.ticker)
-        .filter(Tickers.symbol == "WTI", Price.price_at == price_at)
+        .filter(Tickers.symbol == "WTI", Price.timestamp == price_at)
         .one()
     )
     assert stored_row.price == 110.0
@@ -189,11 +189,11 @@ def test_get_latest_prices_returns_latest_rows(db_session) -> None:
 
     assert isinstance(latest_rows[0], LatestPricePoint)
     assert [row.current.ticker.symbol for row in latest_rows] == ["WTI", "BRENT"]
-    assert [row.current.price_at.replace(tzinfo=UTC) for row in latest_rows] == [today_start, today_start]
+    assert [row.current.timestamp.replace(tzinfo=UTC) for row in latest_rows] == [today_start, today_start]
     previous_dates = []
     for row in latest_rows:
         assert row.previous is not None
-        previous_dates.append(row.previous.price_at.replace(tzinfo=UTC))
+        previous_dates.append(row.previous.timestamp.replace(tzinfo=UTC))
     assert previous_dates == [yesterday_mid, yesterday_mid]
 
 
@@ -211,7 +211,7 @@ def test_rebuild_market_analytics_persists_indicator_rows(db_session) -> None:
         rows.append(
             Price(
                 ticker_id=ticker_ids["CL=F"],
-                price_at=price_at,
+                timestamp=price_at,
                 price=100.0 + day_offset,
                 currency="USD",
                 source="yahoo_finance",
@@ -221,7 +221,7 @@ def test_rebuild_market_analytics_persists_indicator_rows(db_session) -> None:
         rows.append(
             Price(
                 ticker_id=ticker_ids["BZ=F"],
-                price_at=price_at,
+                timestamp=price_at,
                 price=110.0 + day_offset,
                 currency="USD",
                 source="yahoo_finance",

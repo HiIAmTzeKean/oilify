@@ -9,12 +9,12 @@ from oilify_studio_backend.services.price import PricePoint, _round_to_30min, up
 def _make_price(
     *,
     ticker_id: int,
-    price_at: datetime,
+    timestamp: datetime,
     price: float,
 ) -> Price:
     return Price(
         ticker_id=ticker_id,
-        price_at=price_at,
+        timestamp=timestamp,
         price=price,
         currency="USD",
         source="yahoo_finance",
@@ -59,13 +59,13 @@ def test_refresh_prices_includes_previous_day_comparison(client, db_session, moc
     custom_ticker = Tickers(symbol="TEST", ticker="TEST")
     db_session.add(custom_ticker)
     db_session.flush()
-    db_session.add(
-        _make_price(
-            ticker_id=custom_ticker.id,
-            price_at=yesterday_start,
-            price=99.0,
+        db_session.add(
+            _make_price(
+                ticker_id=custom_ticker.id,
+                timestamp=yesterday_start,
+                price=99.0,
+            )
         )
-    )
     db_session.commit()
 
     price_at = _round_to_30min(now)
@@ -99,10 +99,10 @@ def test_latest_prices_returns_latest_rows(client, db_session) -> None:
 
     db_session.add_all(
         [
-            _make_price(ticker_id=alpha_ticker.id, price_at=yesterday_start, price=99.0),
-            _make_price(ticker_id=alpha_ticker.id, price_at=today_start, price=100.0),
-            _make_price(ticker_id=beta_ticker.id, price_at=yesterday_start, price=101.0),
-            _make_price(ticker_id=beta_ticker.id, price_at=today_start, price=102.0),
+                _make_price(ticker_id=alpha_ticker.id, timestamp=yesterday_start, price=99.0),
+                _make_price(ticker_id=alpha_ticker.id, timestamp=today_start, price=100.0),
+                _make_price(ticker_id=beta_ticker.id, timestamp=yesterday_start, price=101.0),
+                _make_price(ticker_id=beta_ticker.id, timestamp=today_start, price=102.0),
         ]
     )
     db_session.commit()
@@ -114,8 +114,8 @@ def test_latest_prices_returns_latest_rows(client, db_session) -> None:
     payload_by_symbol = {item["symbol"]: item for item in payload}
     assert payload_by_symbol["LATE1"]["short_name"] == "Late 1"
     assert payload_by_symbol["LATE2"]["short_name"] == "Late 2"
-    assert payload_by_symbol["LATE1"]["price_at"] == today_start.replace(tzinfo=None).isoformat()
-    assert payload_by_symbol["LATE2"]["price_at"] == today_start.replace(tzinfo=None).isoformat()
+        assert payload_by_symbol["LATE1"]["timestamp"] == today_start.replace(tzinfo=None).isoformat()
+        assert payload_by_symbol["LATE2"]["timestamp"] == today_start.replace(tzinfo=None).isoformat()
     assert payload_by_symbol["LATE1"]["previous_price"] == 99.0
     assert payload_by_symbol["LATE1"]["price_change"] == 1.0
     assert round(payload_by_symbol["LATE1"]["price_change_pct"], 2) == 1.01
@@ -133,8 +133,8 @@ def test_daily_prices_filters_by_date(client, db_session) -> None:
 
     db_session.add_all(
         [
-            _make_price(ticker_id=custom_ticker.id, price_at=other_day_start, price=98.0),
-            _make_price(ticker_id=custom_ticker.id, price_at=target_start, price=100.0),
+                _make_price(ticker_id=custom_ticker.id, timestamp=other_day_start, price=98.0),
+                _make_price(ticker_id=custom_ticker.id, timestamp=target_start, price=100.0),
         ]
     )
     db_session.commit()
@@ -144,7 +144,7 @@ def test_daily_prices_filters_by_date(client, db_session) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert len(payload) == 1
-    assert payload[0]["price_at"] == target_start.replace(tzinfo=None).isoformat()
+        assert payload[0]["timestamp"] == target_start.replace(tzinfo=None).isoformat()
     assert payload[0]["price"] == 100.0
 
 
@@ -204,8 +204,8 @@ def test_history_prices_returns_grouped_series(client, db_session, mocker) -> No
     payload_by_symbol = {item["symbol"]: item for item in payload}
     assert payload_by_symbol["HIST1"]["short_name"] == "Hist 1"
     assert len(payload_by_symbol["HIST1"]["points"]) == 2
-    assert payload_by_symbol["HIST1"]["points"][0]["price_at"] == yesterday_start.isoformat().replace("+00:00", "Z")
-    assert payload_by_symbol["HIST1"]["points"][1]["price_at"] == today_start.isoformat().replace("+00:00", "Z")
+        assert payload_by_symbol["HIST1"]["points"][0]["timestamp"] == yesterday_start.isoformat().replace("+00:00", "Z")
+        assert payload_by_symbol["HIST1"]["points"][1]["timestamp"] == today_start.isoformat().replace("+00:00", "Z")
     assert payload_by_symbol["HIST1"]["technical_indicators"][0]["indicator_name"] == "sma_20"
     assert payload_by_symbol["HIST1"]["technical_indicators"][0]["points"][1]["indicator_value"] == 100.0
     assert payload_by_symbol["HIST1"]["historical_volatility"][0]["points"][0]["annualized_volatility"] == 0.32

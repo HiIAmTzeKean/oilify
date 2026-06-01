@@ -29,7 +29,7 @@ def _build_price_points() -> list[PricePoint]:
                     ticker=ticker,
                     price=base_price + day_offset,
                     currency="USD",
-                    price_at=price_at,
+                    timestamp=price_at,
                     fetched_at=fetched_at,
                 )
             )

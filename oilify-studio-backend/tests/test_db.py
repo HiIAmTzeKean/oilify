@@ -91,7 +91,7 @@ def test_create_tables_renames_legacy_prices_columns() -> None:
 
     columns = {column["name"] for column in inspect(engine).get_columns("prices")}
 
-    assert "price_at" in columns
+    assert "timestamp" in columns
     assert "price" in columns
     assert "date" not in columns
     assert "price_usd" not in columns

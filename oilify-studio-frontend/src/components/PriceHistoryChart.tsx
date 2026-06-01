@@ -16,8 +16,25 @@ const MARGIN = {
   left: 64,
 }
 
+const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/
+
+const parsePriceDate = (value: string): Date | null => {
+  if (!value) {
+    return null
+  }
+
+  const trimmed = value.trim()
+  const candidate = DATE_ONLY_REGEX.test(trimmed) ? `${trimmed}T00:00:00Z` : trimmed
+  const dateValue = new Date(candidate)
+  return Number.isNaN(dateValue.getTime()) ? null : dateValue
+}
+
 const formatDate = (value: string): string => {
-  const dateValue = new Date(`${value}T00:00:00`)
+  const dateValue = parsePriceDate(value)
+  if (!dateValue) {
+    return 'Invalid date'
+  }
+
   return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(dateValue)
 }
 
@@ -25,6 +42,10 @@ const buildPath = (
   data: Array<{ x: number; y: number }>,
 ): string => {
   return data.reduce((path, point, index) => `${path}${index === 0 ? 'M' : 'L'} ${point.x} ${point.y} `, '').trim()
+}
+
+const hasPriceDate = (point: { price_date?: string | null }): boolean => {
+  return typeof point.price_date === 'string' && point.price_date.trim().length > 0
 }
 
 const isPriceOverlayIndicator = (indicatorName: string): boolean => {
@@ -169,7 +190,15 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
         })}
 
         {series.map((item) => {
-          const orderedPoints = [...item.points].sort((left, right) => left.price_date.localeCompare(right.price_date))
+          const orderedPoints = item.points
+            .filter((point) => hasPriceDate(point))
+            .slice()
+            .sort((left, right) => left.price_date.localeCompare(right.price_date))
+
+          if (orderedPoints.length === 0) {
+            return null
+          }
+
           const mappedPoints = orderedPoints.map((point) => ({
             x: xForDate(point.price_date),
             y: yForValue(point.price),
@@ -188,12 +217,22 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
                 .filter((indicatorSeries) => isPriceOverlayIndicator(indicatorSeries.indicator_name))
                 .map((indicatorSeries) => {
                   const mappedIndicatorPoints = indicatorSeries.points
+                    .filter((point) => hasPriceDate(point))
                     .slice()
                     .sort((left, right) => left.price_date.localeCompare(right.price_date))
                     .map((point) => ({
                       x: xForDate(point.price_date),
                       y: yForValue(point.indicator_value),
                     }))
+
+                  if (mappedIndicatorPoints.length === 0) {
+                    return null
+                  }
+
+                  const orderedIndicatorPoints = indicatorSeries.points
+                    .filter((point) => hasPriceDate(point))
+                    .slice()
+                    .sort((left, right) => left.price_date.localeCompare(right.price_date))
 
                   return (
                     <React.Fragment key={`${item.ticker}-${indicatorSeries.indicator_name}`}>
@@ -208,7 +247,7 @@ export default function PriceHistoryChart({ series }: PriceHistoryChartProps) {
                       />
                       {mappedIndicatorPoints.map((point, index) => (
                         <circle
-                          key={`${item.ticker}-${indicatorSeries.indicator_name}-${indicatorSeries.points[index].price_date}`}
+                          key={`${item.ticker}-${indicatorSeries.indicator_name}-${orderedIndicatorPoints[index].price_date}`}
                           cx={point.x}
                           cy={point.y}
                           r="3"

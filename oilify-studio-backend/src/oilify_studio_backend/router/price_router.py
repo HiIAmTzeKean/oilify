@@ -52,7 +52,7 @@ def _to_response(row: Price, db: Session, previous_price: float | None = None) -
         ticker=ticker.ticker if ticker is not None else "",
         short_name=ticker.short_name if ticker is not None else None,
         long_name=ticker.long_name if ticker is not None else None,
-        price_at=row.price_at,
+        timestamp=row.timestamp,
         price=row.price,
         previous_price=previous_price,
         price_change=price_change,
@@ -70,14 +70,14 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
     cutoff_date: date | None = None
 
     for point in points:
-        point_date = point.price_at.date()
+        point_date = point.timestamp.date()
         if cutoff_date is None or point_date < cutoff_date:
             cutoff_date = point_date
         series_key = (point.symbol, point.ticker)
         series_currency.setdefault(series_key, point.currency)
         grouped_points[series_key].append(
             PriceHistoryPointResponse(
-                price_at=point.price_at,
+                timestamp=point.timestamp,
                 price=point.price,
             )
         )
@@ -107,7 +107,7 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
             key = (indicator_row.name, indicator_row.window_size)
             indicator_series[series_key][key].append(
                 PriceIndicatorPointResponse(
-                    price_at=datetime.combine(indicator_row.date, datetime.min.time()),
+                    timestamp=datetime.combine(indicator_row.date, datetime.min.time()),
                     indicator_value=indicator_row.value,
                 )
             )
@@ -132,7 +132,7 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
 
             entry["points"].append(
                 HistoricalVolatilityPointResponse(
-                    price_at=datetime.combine(volatility_row.date, datetime.min.time()),
+                    timestamp=datetime.combine(volatility_row.date, datetime.min.time()),
                     annualized_volatility=volatility_row.value,
                 )
             )
@@ -158,7 +158,7 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
                 HistoricalVolatilitySeriesResponse(
                     window_size=ws,
                     annualization_factor=entry["annualization_factor"],
-                    points=sorted(entry["points"], key=lambda p: p.price_at),
+                    points=sorted(entry["points"], key=lambda p: p.timestamp),
                 )
             )
 
@@ -169,7 +169,7 @@ def _group_history_points(db: Session, days: int) -> list[PriceHistorySeriesResp
                 short_name=ticker_row.short_name,
                 long_name=ticker_row.long_name,
                 currency=series_currency.get(series_key),
-                points=sorted(point_list, key=lambda point: point.price_at),
+                points=sorted(point_list, key=lambda point: point.timestamp),
                 technical_indicators=indicator_list,
                 historical_volatility=hv_series_list,
             )
@@ -234,7 +234,7 @@ def create_price_router() -> APIRouter:
             rows = (
                 db.query(Price)
                 .options(joinedload(Price.ticker))
-                .filter(Price.price_at >= target_date, Price.price_at < date(target_date.year, target_date.month, target_date.day + 1))
+                .filter(Price.timestamp >= target_date, Price.timestamp < date(target_date.year, target_date.month, target_date.day + 1))
                 .all()
             )
             prices = [_to_response(row, db) for row in rows]

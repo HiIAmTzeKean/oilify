@@ -16,8 +16,25 @@ const MARGIN = {
   left: 64,
 }
 
+const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/
+
+const parsePriceDate = (value: string): Date | null => {
+  if (!value) {
+    return null
+  }
+
+  const trimmed = value.trim()
+  const candidate = DATE_ONLY_REGEX.test(trimmed) ? `${trimmed}T00:00:00Z` : trimmed
+  const dateValue = new Date(candidate)
+  return Number.isNaN(dateValue.getTime()) ? null : dateValue
+}
+
 const formatDate = (value: string): string => {
-  const dateValue = new Date(`${value}T00:00:00`)
+  const dateValue = parsePriceDate(value)
+  if (!dateValue) {
+    return 'Invalid date'
+  }
+
   return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(dateValue)
 }
 

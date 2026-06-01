@@ -25,7 +25,7 @@ class PricePoint:
     ticker: str
     price: float
     currency: str
-    price_at: datetime
+    timestamp: datetime
     fetched_at: datetime
 
 
@@ -97,7 +97,7 @@ def fetch_current_prices(db: Session) -> list[PricePoint]:
     ticker_rows = _get_ticker_rows(db)
     logger.info("Fetching current prices for %s symbols", len(ticker_rows))
     now = datetime.now(UTC)
-    price_at = _round_to_30min(now)
+    timestamp = _round_to_30min(now)
     points: list[PricePoint] = []
     for ticker_row in ticker_rows:
         symbol = ticker_row.symbol
@@ -110,7 +110,7 @@ def fetch_current_prices(db: Session) -> list[PricePoint]:
                 ticker=ticker,
                 price=price,
                 currency=currency,
-                price_at=price_at,
+                timestamp=timestamp,
                 fetched_at=now,
             )
         )
@@ -168,7 +168,7 @@ def fetch_historical_prices(db: Session, days: int = 30) -> list[PricePoint]:
                     ticker=ticker,
                     price=float(close_price),
                     currency=currency,
-                    price_at=price_timestamp,
+                    timestamp=price_timestamp,
                     fetched_at=fetched_at,
                 )
             )
@@ -197,17 +197,17 @@ def upsert_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
     saved_rows: list[Price] = []
     for point in prices:
         logger.debug(
-            "Upserting price symbol=%s ticker=%s price_at=%s price=%s currency=%s",
+            "Upserting price symbol=%s ticker=%s timestamp=%s price=%s currency=%s",
             point.symbol,
             point.ticker,
-            point.price_at,
+            point.timestamp,
             point.price,
             point.currency,
         )
         ticker_row = _get_or_create_ticker(db, point.symbol, point.ticker)
         existing = (
             db.query(Price)
-            .filter(Price.ticker_id == ticker_row.id, Price.price_at == point.price_at)
+            .filter(Price.ticker_id == ticker_row.id, Price.timestamp == point.timestamp)
             .first()
         )
         if existing:
@@ -219,7 +219,7 @@ def upsert_prices(db: Session, prices: list[PricePoint]) -> list[Price]:
         else:
             row = Price(
                 ticker_id=ticker_row.id,
-                price_at=point.price_at,
+                timestamp=point.timestamp,
                 price=point.price,
                 currency=point.currency,
                 source="yahoo_finance",
@@ -252,7 +252,7 @@ def get_latest_prices(db: Session) -> list[LatestPricePoint]:
         rows = (
             db.query(Price)
             .filter(Price.ticker_id == ticker_row.id)
-            .order_by(Price.price_at.desc(), Price.id.desc())
+            .order_by(Price.timestamp.desc(), Price.id.desc())
             .limit(2)
             .all()
         )

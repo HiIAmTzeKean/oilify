@@ -37,7 +37,7 @@ class Tickers(Base):
 
 class Price(Base):
     __tablename__ = "prices"
-    __table_args__ = (UniqueConstraint("ticker_id", "price_at", name="uq_price_ticker_price_at"),)
+    __table_args__ = (UniqueConstraint("ticker_id", "timestamp", name="uq_price_ticker_timestamp"),)
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -46,7 +46,7 @@ class Price(Base):
         autoincrement=True,
     )
     ticker_id: Mapped[int] = mapped_column(ForeignKey("tickers.id"), nullable=False)
-    price_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     price: Mapped[float] = mapped_column(Float, nullable=False)
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="USD")
     source: Mapped[str] = mapped_column(String(64), nullable=False, default="yahoo_finance")
